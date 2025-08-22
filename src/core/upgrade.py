@@ -175,23 +175,50 @@ def attempt_auto_upgrade(install_method: InstallMethod, target_version: str) -> 
             branch_result = subprocess.run(branch_cmd, capture_output=True, text=True, timeout=10)
             current_branch = branch_result.stdout.strip()
             
-            # Fetch latest changes
-            logger.info(f"Fetching latest changes from origin/{current_branch}")
-            fetch_cmd = ["git", "-C", str(current_dir), "fetch", "origin", current_branch]
+            # For version updates, we should check main branch for releases
+            # But pull from current branch for development
+            update_branch = "main" if current_branch != "main" else current_branch
+            
+            # Fetch latest changes from both branches
+            logger.info(f"Fetching latest changes from origin")
+            fetch_cmd = ["git", "-C", str(current_dir), "fetch", "origin"]
             fetch_result = subprocess.run(fetch_cmd, capture_output=True, text=True, timeout=30)
             
             if fetch_result.returncode != 0:
                 return False, f"Failed to fetch updates: {fetch_result.stderr}"
             
-            # Check if we're behind
+            # Check if there's a new version tag on main
+            if current_branch != "main":
+                # Check if main has new version tags
+                tags_cmd = ["git", "-C", str(current_dir), "tag", "--merged", "origin/main", "--sort=-version:refname"]
+                tags_result = subprocess.run(tags_cmd, capture_output=True, text=True, timeout=10)
+                
+                if tags_result.returncode == 0 and tags_result.stdout.strip():
+                    latest_tag = tags_result.stdout.strip().split('\n')[0]
+                    # Check if we should switch to main for the latest release
+                    logger.info(f"Latest release tag on main: {latest_tag}")
+                    
+                    # For now, just pull current branch updates
+                    # In production, users should use released versions from main
+            
+            # Check if we're behind on current branch
             behind_cmd = ["git", "-C", str(current_dir), "rev-list", "--count", f"HEAD..origin/{current_branch}"]
             behind_result = subprocess.run(behind_cmd, capture_output=True, text=True, timeout=10)
             commits_behind = int(behind_result.stdout.strip() or "0")
             
             if commits_behind == 0:
+                # If on develop, check if main has updates
+                if current_branch == "develop":
+                    main_behind_cmd = ["git", "-C", str(current_dir), "rev-list", "--count", "HEAD..origin/main"]
+                    main_behind_result = subprocess.run(main_behind_cmd, capture_output=True, text=True, timeout=10)
+                    main_commits_behind = int(main_behind_result.stdout.strip() or "0")
+                    
+                    if main_commits_behind > 0:
+                        return False, f"New release available on main branch. Switch to main branch and pull to get the latest stable version"
+                
                 return True, "Already up to date with the repository"
             
-            # Pull the changes
+            # Pull the changes from current branch
             logger.info(f"Pulling {commits_behind} commits from origin/{current_branch}")
             pull_cmd = ["git", "-C", str(current_dir), "pull", "origin", current_branch]
             pull_result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=30)
