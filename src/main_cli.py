@@ -212,10 +212,10 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     failed = 0
     
     # Create table for results
-    table = Table(title="Publishing Results")
-    table.add_column("Alert", style="cyan")
+    table = Table(title="Publishing Results", show_lines=False)
+    table.add_column("Alert", style="cyan", no_wrap=False)
     table.add_column("Status", style="green")
-    table.add_column("Ticket", style="dim")
+    table.add_column("Ticket URL", style="dim", no_wrap=True)
     table.add_column("Details")
     
     # Publish each alert
@@ -255,17 +255,27 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
             if dry_run:
                 table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", "", description_display)
             else:
-                table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_id or "", result.ticket_url or "")
+                # For created tickets, show the URL
+                if result.ticket_url:
+                    table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_url, "")
+                elif result.ticket_id:
+                    ticket_url = f"https://app.clickup.com/t/{result.ticket_id}"
+                    table.add_row(alert_text, "[green]CREATED[/green]", ticket_url, "")
+                else:
+                    table.add_row(alert_text, "[green]CREATED[/green]", "", "")
             created += 1
         elif result.skipped:
             if "already exists" in (result.skipped_reason or "").lower():
-                # For existing tasks, show the URL or ID
+                # For existing tasks, show the full URL (clickable in modern terminals)
                 if result.ticket_url:
-                    # Show short URL format for better visibility
-                    short_url = result.ticket_url.replace("https://app.", "")
-                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", short_url, description_display)
+                    # Keep full URL for functionality
+                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.ticket_url, description_display)
+                elif result.ticket_id:
+                    # Build URL from ID if not provided
+                    ticket_url = f"https://app.clickup.com/t/{result.ticket_id}"
+                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", ticket_url, description_display)
                 else:
-                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.ticket_id or "", description_display)
+                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", "", description_display)
                 skipped += 1
             elif dry_run and "dry run" in (result.skipped_reason or "").lower():
                 # For dry run, show the alert description
