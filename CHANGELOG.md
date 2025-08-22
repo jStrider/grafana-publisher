@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/jStrider/grafana-publisher/compare/v0.2.1...v0.2.2) (2025-08-22)
+
+
+### Bug Fixes
+
+* remove trailing newline from VERSION file ([2c75bb3](https://github.com/jStrider/grafana-publisher/commit/2c75bb3fd1a58050fd449757cd290372b45f3eed))
+
 ## [0.2.1](https://github.com/jStrider/grafana-publisher/compare/v0.2.0...v0.2.1) (2025-08-22)
 
 
