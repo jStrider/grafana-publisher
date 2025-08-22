@@ -32,6 +32,7 @@ class ClickUpPublisher(BasePublisher):
             config.cache.ttl
         ) if config.cache.enabled else None
         self._existing_tasks = None
+        self._all_tasks_with_subtasks = None
     
     def _create_session(self) -> requests.Session:
         """Create HTTP session."""
@@ -61,9 +62,15 @@ class ClickUpPublisher(BasePublisher):
             return self._existing_tasks
         
         try:
+            # Get all tasks with subtasks included in the response
+            params = {
+                "archived": "false",
+                "include_closed": "false",
+                "subtasks": "true"  # This includes subtask IDs in the response
+            }
             response = self.session.get(
                 f"{self.config.api_url}/api/v2/list/{self.config.list_id}/task",
-                params={"archived": "false"}
+                params=params
             )
             response.raise_for_status()
             self._existing_tasks = response.json().get("tasks", [])
@@ -72,10 +79,84 @@ class ClickUpPublisher(BasePublisher):
             logger.error("Failed to fetch existing tasks", error=str(e))
             return []
     
+    def get_all_tasks_with_subtasks(self) -> List[Dict[str, Any]]:
+        """Get all tasks including subtasks if configured."""
+        if not self.config.check_subtasks:
+            return self.get_existing_tickets()
+        
+        if self._all_tasks_with_subtasks is not None:
+            return self._all_tasks_with_subtasks
+        
+        all_tasks = []
+        main_tasks = self.get_existing_tickets()
+        all_tasks.extend(main_tasks)
+        
+        # Collect all subtask IDs from main tasks
+        subtask_ids = []
+        for task in main_tasks:
+            if "subtasks" in task and task["subtasks"]:
+                subtask_ids.extend(task["subtasks"])
+        
+        # Batch fetch subtasks if there are any
+        if subtask_ids:
+            logger.info(f"Fetching {len(subtask_ids)} subtasks...")
+            for subtask_id in subtask_ids[:100]:  # Limit to first 100 to avoid timeout
+                try:
+                    response = self.session.get(
+                        f"{self.config.api_url}/api/v2/task/{subtask_id}"
+                    )
+                    if response.status_code == 200:
+                        subtask_data = response.json()
+                        all_tasks.append(subtask_data)
+                except requests.RequestException:
+                    continue  # Skip failed subtask fetches
+        
+        self._all_tasks_with_subtasks = all_tasks
+        logger.info(f"Fetched {len(all_tasks)} total tasks (including {len(all_tasks) - len(main_tasks)} subtasks)")
+        return all_tasks
+    
+    def _get_subtasks(self, task_id: str, depth: int = 0) -> List[Dict[str, Any]]:
+        """Recursively get subtasks for a given task."""
+        if depth >= self.config.subtasks_depth:
+            return []
+        
+        try:
+            response = self.session.get(
+                f"{self.config.api_url}/api/v2/task/{task_id}",
+                params={"include_subtasks": "true"}
+            )
+            response.raise_for_status()
+            task_data = response.json()
+            
+            subtasks = []
+            if "subtasks" in task_data:
+                for subtask_id in task_data["subtasks"]:
+                    # Fetch full subtask data
+                    subtask_response = self.session.get(
+                        f"{self.config.api_url}/api/v2/task/{subtask_id}"
+                    )
+                    if subtask_response.status_code == 200:
+                        subtask_data = subtask_response.json()
+                        subtasks.append(subtask_data)
+                        # Recursively get sub-subtasks
+                        if depth + 1 < self.config.subtasks_depth:
+                            sub_subtasks = self._get_subtasks(subtask_id, depth + 1)
+                            subtasks.extend(sub_subtasks)
+            
+            return subtasks
+        except requests.RequestException as e:
+            logger.debug(f"Failed to fetch subtasks for task {task_id}: {e}")
+            return []
+    
     def check_existing(self, alert: Alert) -> Optional[str]:
         """Check if a ticket already exists for this alert."""
         task_name = self._generate_task_name(alert)
-        existing_tasks = self.get_existing_tickets()
+        
+        # Get all tasks including subtasks if configured
+        if self.config.check_subtasks:
+            existing_tasks = self.get_all_tasks_with_subtasks()
+        else:
+            existing_tasks = self.get_existing_tickets()
         
         for task in existing_tasks:
             if task.get("name") == task_name:

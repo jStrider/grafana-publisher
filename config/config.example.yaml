@@ -30,6 +30,10 @@ publishers:
     token: "${CLICKUP_API_TOKEN}"
     list_id: "35412629"
     
+    # Subtask checking (to avoid duplicates in subtasks)
+    check_subtasks: false  # Set to true to check subtasks for duplicates
+    subtasks_depth: 1      # How many levels deep to check (1 = direct subtasks only)
+    
     # Field mappings
     field_mappings:
       hospital:

@@ -63,6 +63,8 @@ class ClickUpConfig(BaseModel):
     list_id: str
     field_mappings: Dict[str, FieldMapping]
     cache: CacheConfig
+    check_subtasks: bool = False  # New option to check subtasks
+    subtasks_depth: int = 1  # How many levels deep to check subtasks
     
     @field_validator("token")
     @classmethod
