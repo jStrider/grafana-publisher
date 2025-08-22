@@ -1,3 +1,16 @@
+# [0.4.0-develop.1](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.4.0-develop.1) (2025-08-22)
+
+
+### Bug Fixes
+
+* improve auto-upgrade for development installations ([1e42324](https://github.com/jStrider/grafana-publisher/commit/1e42324f2d144e99f2eea83d63aebfc35cddd243))
+
+
+### Features
+
+* add intelligent auto-upgrade system ([3113c74](https://github.com/jStrider/grafana-publisher/commit/3113c741218f1f50bbe669ddc02a00386e2eb66c))
+* add uv package manager support ([d6ae812](https://github.com/jStrider/grafana-publisher/commit/d6ae812155b36c74a346e01fc2b91cd8695e2b0c))
+
 # [0.3.1](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.3.1) (2025-08-22)
 
 
