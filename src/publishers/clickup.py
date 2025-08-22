@@ -210,9 +210,54 @@ class ClickUpPublisher(BasePublisher):
         """Get custom fields for the task."""
         custom_fields = []
         
-        # This would integrate with the field mapping system
-        # For now, returning empty list
-        # TODO: Implement dynamic field mapping
+        # Required fields with their IDs from ClickUp
+        # Type support (ID: 8daff867-e54a-49f5-...)
+        # Type Infra (ID: 34e05f42-914e-41cb-...)
+        # categorie infra (ID: 6b621c5f-6aff-412b-...)
+        
+        # Determine values based on alert type
+        alert_type = self._determine_alert_type(alert.description)
+        
+        # Type support - map alert types to support types
+        type_support_mapping = {
+            "backup failed": "Sauvegarde",
+            "alerte stockage": "Stockage",
+            "alerte mémoire": "Performance",
+            "alerte CPU": "Performance",
+            "alerte systemd service": "Services Down",
+            "alerte certificat": "Certificat",
+            "server down": "Services Down",
+            "alerte RAID": "Stockage"
+        }
+        
+        type_support_value = type_support_mapping.get(alert_type, "Monitoring")
+        
+        # Add Type support field
+        custom_fields.append({
+            "id": "8daff867-e54a-49f5-47ba-8c16cba83070",  # Full ID for Type support
+            "value": type_support_value
+        })
+        
+        # Add Type Infra field - default to "monitoring" for alerts
+        custom_fields.append({
+            "id": "34e05f42-914e-41cb-9834-a67c488bc643",  # Full ID for Type Infra
+            "value": "monitoring"
+        })
+        
+        # Add categorie infra field - default to "Operationnel" for alerts
+        custom_fields.append({
+            "id": "6b621c5f-6aff-412b-946b-ffb64802de5e",  # Full ID for categorie infra
+            "value": "Operationnel"
+        })
+        
+        # Add Hospital field if configured
+        if hasattr(self.config, 'field_mappings') and 'hospital' in self.config.field_mappings:
+            # Hospital field ID: 3b500181-7b34-4062-...
+            hospital_value = alert.customer_id.title() if alert.customer_id else "Sancare"
+            custom_fields.append({
+                "id": "3b500181-7b34-4062-9f6f-c8e088e5f1bd",  # Full ID for Hôpital
+                "value": [hospital_value]  # Labels field expects array
+            })
         
         return custom_fields
     

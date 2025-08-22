@@ -215,6 +215,7 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     table = Table(title="Publishing Results")
     table.add_column("Alert", style="cyan")
     table.add_column("Status", style="green")
+    table.add_column("ID", style="dim")
     table.add_column("Details")
     
     # Publish each alert
@@ -252,24 +253,24 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
         
         if result.success:
             if dry_run:
-                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", description_display)
+                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", "", description_display)
             else:
-                table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_url or "")
+                table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_id or "", result.ticket_url or "")
             created += 1
         elif result.skipped:
             if "already exists" in (result.skipped_reason or "").lower():
-                # For existing tasks, show the ticket ID if available
-                table.add_row(alert_text, "[yellow]EXISTS[/yellow]", f"ID: {result.ticket_id}" if result.ticket_id else description_display)
+                # For existing tasks, show the ticket ID in ID column
+                table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.ticket_id or "", description_display)
                 skipped += 1
             elif dry_run and "dry run" in (result.skipped_reason or "").lower():
                 # For dry run, show the alert description
-                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", description_display)
+                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", "", description_display)
                 created += 1
             else:
-                table.add_row(alert_text, "[yellow]SKIPPED[/yellow]", result.skipped_reason or "")
+                table.add_row(alert_text, "[yellow]SKIPPED[/yellow]", "", result.skipped_reason or "")
                 skipped += 1
         else:
-            table.add_row(alert_text, "[red]FAILED[/red]", result.error or "")
+            table.add_row(alert_text, "[red]FAILED[/red]", "", result.error or "")
             failed += 1
     
     # Display results
