@@ -4,21 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grafana-publisher"
-version = "0.1.0"
-description = "Scrape Grafana alerts and create tickets automatically"
+dynamic = ["version"]
+description = "Scrape Grafana alerts and create tickets in ClickUp/Jira"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "JRenaud", email = "contact@jrenaud.dev"}
 ]
+keywords = ["grafana", "clickup", "jira", "alerting", "monitoring"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",
-    "Topic :: System :: Monitoring",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -26,25 +25,22 @@ classifiers = [
 ]
 
 dependencies = [
+    "click>=8.0.0",
+    "requests>=2.28.0",
     "pyyaml>=6.0",
-    "requests>=2.31.0",
-    "click>=8.1.0",
     "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
-    "structlog>=24.0.0",
     "rich>=13.0.0",
-    "packaging>=23.0",
+    "python-dateutil>=2.8.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.11.0",
-    "responses>=0.23.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
-    "mypy>=1.5.0",
+    "mypy>=1.0.0",
 ]
 
 [project.scripts]
@@ -53,28 +49,55 @@ gpub = "src.main_cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/jStrider/grafana-publisher"
-Repository = "https://github.com/jStrider/grafana-publisher.git"
-Issues = "https://github.com/jStrider/grafana-publisher/issues"
+Repository = "https://github.com/jStrider/grafana-publisher"
+"Bug Tracker" = "https://github.com/jStrider/grafana-publisher/issues"
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
 
-[tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml"]
-
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py39', 'py310', 'py311', 'py312']
 
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "W", "I", "N", "B", "Q"]
-ignore = ["E501"]
+target-version = "py39"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

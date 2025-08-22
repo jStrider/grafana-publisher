@@ -10,6 +10,7 @@ from src.core.config import ClickUpConfig
 from src.core.logger import get_logger
 from src.publishers.base import BasePublisher, PublishResult
 from src.scrapers.base import Alert
+from src.publishers.field_resolver import FieldResolver
 
 
 logger = get_logger(__name__)
@@ -32,6 +33,8 @@ class ClickUpPublisher(BasePublisher):
             config.cache.ttl
         ) if config.cache.enabled else None
         self._existing_tasks = None
+        self._field_resolver = None
+        self._list_info = None
     
     def _create_session(self) -> requests.Session:
         """Create HTTP session."""
@@ -178,14 +181,45 @@ class ClickUpPublisher(BasePublisher):
         
         return None
     
+    def _get_field_resolver(self) -> FieldResolver:
+        """Get or create field resolver."""
+        if self._field_resolver is None:
+            fields = self.get_field_definitions()
+            self._field_resolver = FieldResolver(fields)
+        return self._field_resolver
+    
+    def _get_list_info(self) -> Dict[str, Any]:
+        """Get list information including statuses."""
+        if self._list_info is None:
+            try:
+                response = self.session.get(
+                    f"{self.config.api_url}/api/v2/list/{self.config.list_id}"
+                )
+                response.raise_for_status()
+                self._list_info = response.json()
+            except requests.RequestException as e:
+                logger.error("Failed to fetch list info", error=str(e))
+                self._list_info = {}
+        return self._list_info
+    
     def _prepare_task_data(self, alert: Alert) -> Dict[str, Any]:
         """Prepare task data for ClickUp API."""
         task_name = self._generate_task_name(alert)
         
+        # Get the initial status dynamically
+        list_info = self._get_list_info()
+        resolver = self._get_field_resolver()
+        
+        # Get the first "open" type status or fallback to first status
+        initial_status = resolver.get_status_name(
+            list_info.get("statuses", []), 
+            "open"
+        ) or "To Do"
+        
         task_data = {
             "name": task_name,
             "description": alert.description,
-            "status": "nouvelles demandes",  # ClickUp status in French
+            "status": initial_status,
             "priority": self._map_priority(alert.severity)
         }
         
@@ -207,72 +241,127 @@ class ClickUpPublisher(BasePublisher):
         return mapping.get(severity.lower(), 3)
     
     def _get_custom_fields(self, alert: Alert) -> List[Dict[str, Any]]:
-        """Get custom fields for the task."""
+        """Get custom fields for the task using dynamic field resolution."""
         custom_fields = []
+        resolver = self._get_field_resolver()
         
         # Check if required_fields is configured
-        if not hasattr(self.config, 'required_fields'):
-            logger.warning("No required_fields configured in ClickUp settings")
+        if not hasattr(self.config, 'required_fields') or not self.config.required_fields:
+            logger.debug("No required_fields configured, using defaults")
+            # Use sensible defaults
+            self._add_default_fields(custom_fields, alert, resolver)
             return custom_fields
         
         required_fields = self.config.required_fields
         
-        # Determine alert type for mapping
-        alert_type = self._determine_alert_type(alert.description)
-        
-        # Process Type support field
-        if 'type_support' in required_fields:
-            field_config = required_fields['type_support']
+        # Process each configured field
+        for field_key, field_config in required_fields.items():
+            if not isinstance(field_config, dict):
+                continue
+                
+            field_name = field_config.get('field_name')
+            if not field_name:
+                logger.warning(f"No field_name for {field_key}")
+                continue
             
-            # Map alert type to support type
-            alert_type_key = alert_type.replace("alerte ", "").replace(" ", "_") if alert_type else None
+            # Get field ID dynamically
+            field_id = resolver.get_field_id(field_name)
+            if not field_id:
+                logger.warning(f"Field '{field_name}' not found in ClickUp")
+                continue
             
-            # Get value from mapping or use default
-            value = field_config.get('default', 'Monitoring')
-            if alert_type_key and 'mapping' in field_config:
-                value = field_config['mapping'].get(alert_type_key, value)
-            
-            custom_fields.append({
-                "id": field_config['field_id'],
-                "value": value
-            })
-        
-        # Process Type Infra field
-        if 'type_infra' in required_fields:
-            field_config = required_fields['type_infra']
-            custom_fields.append({
-                "id": field_config['field_id'],
-                "value": field_config.get('default', 'monitoring')
-            })
-        
-        # Process categorie infra field
-        if 'categorie_infra' in required_fields:
-            field_config = required_fields['categorie_infra']
-            custom_fields.append({
-                "id": field_config['field_id'],
-                "value": field_config.get('default', 'Operationnel')
-            })
-        
-        # Process Hospital field - disabled for now as it's causing issues
-        # The field is of type 'labels' but doesn't have predefined options
-        # TODO: Investigate how to properly set label fields in ClickUp
-        # if 'hospital' in required_fields:
-        #     field_config = required_fields['hospital']
-        #     
-        #     # Use customer_id if configured
-        #     if field_config.get('use_customer_id', False):
-        #         value = alert.customer_id.title() if alert.customer_id else "Sancare"
-        #         
-        #         # For labels type, value should be an array
-        #         if field_config.get('type') == 'labels':
-        #             value = [value]
-        #         
-        #         custom_fields.append({
-        #             "id": field_config['field_id'],
-        #             "value": value
-        #         })
+            # Determine the value
+            value = self._get_field_value(field_config, alert, resolver)
+            if value is not None:
+                custom_fields.append({
+                    "id": field_id,
+                    "value": value
+                })
         
         return custom_fields
+    
+    def _add_default_fields(self, custom_fields: List[Dict[str, Any]], alert: Alert, resolver: FieldResolver):
+        """Add default fields when no configuration is provided."""
+        # Try to add common fields
+        field_mappings = [
+            ("Type support", self._map_alert_to_support_type(alert)),
+            ("Type Infra", "Issue Monitoring"),
+            ("categorie infra", "Operationnel")
+        ]
+        
+        for field_name, option_name in field_mappings:
+            field_id = resolver.get_field_id(field_name)
+            if field_id:
+                option_id = resolver.get_option_id(field_name, option_name)
+                if option_id:
+                    custom_fields.append({
+                        "id": field_id,
+                        "value": option_id
+                    })
+    
+    def _get_field_value(self, field_config: Dict[str, Any], alert: Alert, resolver: FieldResolver):
+        """Get the value for a field based on configuration."""
+        field_name = field_config.get('field_name')
+        
+        # Check if it's a dropdown/labels field that needs option resolution
+        if 'mapping' in field_config:
+            # This field has alert type mapping
+            alert_type = self._determine_alert_type(alert.description)
+            alert_type_key = alert_type.replace("alerte ", "").replace(" ", "_") if alert_type else None
+            
+            # Get the option name from mapping
+            option_name = None
+            if alert_type_key and alert_type_key in field_config['mapping']:
+                option_name = field_config['mapping'][alert_type_key]
+            elif 'default' in field_config:
+                option_name = field_config['default']
+            
+            if option_name:
+                # Resolve option name to ID
+                return resolver.get_option_id(field_name, option_name)
+        
+        elif 'default' in field_config:
+            # Simple default value - resolve if it's an option
+            default_value = field_config['default']
+            
+            # Try to resolve as option ID first
+            option_id = resolver.get_option_id(field_name, default_value)
+            if option_id:
+                return option_id
+            
+            # Otherwise return as is
+            return default_value
+        
+        elif field_config.get('use_customer_id'):
+            # Special case for hospital field
+            if alert.customer_id:
+                # For labels field, try to find the option
+                option_id = resolver.get_option_id(field_name, alert.customer_id)
+                if option_id:
+                    # Labels field expects an array
+                    if field_config.get('type') == 'labels':
+                        return [option_id]
+                    return option_id
+        
+        return None
+    
+    def _map_alert_to_support_type(self, alert: Alert) -> str:
+        """Map alert to a support type."""
+        alert_type = self._determine_alert_type(alert.description)
+        
+        # Default mapping
+        type_mapping = {
+            "backup failed": "Issue",
+            "alerte stockage": "Problème espace disque",
+            "alerte mémoire": "Issue",
+            "alerte CPU": "Issue", 
+            "alerte systemd service": "Services Down",
+            "alerte certificat": "Issue",
+            "server down": "Services Down",
+            "alerte RAID": "Problème espace disque"
+        }
+        
+        return type_mapping.get(alert_type, "Issue")
     
     def get_field_definitions(self) -> Dict[str, Any]:
         """Get field definitions from ClickUp API."""
