@@ -12,8 +12,16 @@ from src.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Current version - single source of truth
-__version__ = "0.1.0"
+# Read version from VERSION file
+def _read_version_file() -> str:
+    """Read version from VERSION file."""
+    version_file = Path(__file__).parent.parent.parent / "VERSION"
+    if version_file.exists():
+        return version_file.read_text().strip()
+    return "0.1.0"  # Fallback version
+
+# Current version - read from VERSION file
+__version__ = _read_version_file()
 
 # GitHub repository information
 GITHUB_OWNER = "jStrider"
@@ -27,7 +35,8 @@ VERSION_CHECK_INTERVAL = timedelta(hours=24)
 
 def get_version() -> str:
     """Get the current version."""
-    return __version__
+    # Re-read from file to get latest version
+    return _read_version_file()
 
 
 def parse_version(version_string: str) -> version.Version:
@@ -35,7 +44,7 @@ def parse_version(version_string: str) -> version.Version:
     Parse a version string.
 
     Args:
-        version_string: Version string (e.g., "1.2.3", "v1.2.3")
+        version_string: Version string (e.g., "1.2.3", "v1.2.3", "1.2.3-develop.1")
 
     Returns:
         Parsed version object
@@ -43,6 +52,14 @@ def parse_version(version_string: str) -> version.Version:
     # Remove 'v' prefix if present
     if version_string.startswith("v"):
         version_string = version_string[1:]
+    
+    # Handle develop/pre-release versions
+    # Convert "0.2.0-develop.2" to "0.2.0.dev2" for proper parsing
+    import re
+    if "-develop." in version_string:
+        version_string = re.sub(r'-develop\.(\d+)', r'.dev\1', version_string)
+    elif "-develop" in version_string:
+        version_string = version_string.replace("-develop", ".dev0")
 
     return version.parse(version_string)
 

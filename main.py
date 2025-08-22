@@ -15,6 +15,7 @@ from rich.table import Table
 
 from src.core.config import Config
 from src.core.logger import get_logger, setup_logging
+from src.core.upgrade import check_and_notify_update, perform_upgrade_check
 from src.core.version import check_for_updates, format_update_message, get_version
 from src.processors.alert_processor import AlertProcessor
 from src.publishers.clickup import ClickUpPublisher
@@ -34,18 +35,17 @@ logger = get_logger(__name__)
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--no-update-check", is_flag=True, help="Skip automatic update check")
+@click.option("--no-auto-upgrade", is_flag=True, help="Disable automatic upgrade (only notify)")
 @click.version_option(version=get_version(), prog_name="Grafana Publisher")
 @click.pass_context
-def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
+def cli(ctx, config: Path, verbose: bool, no_update_check: bool, no_auto_upgrade: bool):
     """Grafana Publisher - Scrape alerts and create tickets."""
     ctx.ensure_object(dict)
 
-    # Check for updates (non-blocking)
-    if not no_update_check and ctx.invoked_subcommand != "version":
+    # Check for updates and auto-upgrade if possible
+    if not no_update_check and ctx.invoked_subcommand not in ["version", "upgrade"]:
         try:
-            update_info = check_for_updates()
-            if update_info and update_info[2]:  # New version available
-                console.print(format_update_message(update_info[0], update_info[1]))
+            check_and_notify_update(auto_upgrade=not no_auto_upgrade)
         except Exception:
             pass  # Silently ignore update check failures
 
@@ -479,6 +479,28 @@ def version(check):
                 console.print("[green]✓ You are running the latest version[/green]")
         else:
             console.print("[yellow]Could not check for updates[/yellow]")
+
+
+@cli.command()
+@click.option("--auto", is_flag=True, help="Automatically upgrade without prompting")
+@click.option("--check", is_flag=True, help="Only check for updates without upgrading")
+def upgrade(auto, check):
+    """Check for updates and upgrade Grafana Publisher."""
+    if check:
+        # Just check, don't upgrade
+        perform_upgrade_check(auto_upgrade=False, interactive=False)
+    else:
+        # Try to upgrade
+        result = perform_upgrade_check(auto_upgrade=auto, interactive=not auto)
+        
+        if result is None:
+            console.print("[green]✓ Already on the latest version[/green]")
+        elif result:
+            console.print("[green]✅ Upgrade successful! Please restart the application.[/green]")
+            sys.exit(0)
+        else:
+            console.print("[yellow]Upgrade was not completed.[/yellow]")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

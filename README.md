@@ -21,6 +21,38 @@ A flexible and extensible tool for scraping Grafana alerts and automatically cre
 curl -sSL https://raw.githubusercontent.com/jStrider/grafana-publisher/main/install.sh | bash
 ```
 
+The installer will detect and offer the best installation method for your system:
+- **uv** (fastest, recommended if available)
+- **pipx** (isolated environment, great for tools)
+- **pip** (standard Python package manager)
+- **venv** (virtual environment)
+
+### Package Manager Installation
+
+#### Using uv (Fastest)
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install grafana-publisher
+uv tool install grafana-publisher
+```
+
+#### Using pipx (Isolated)
+```bash
+# Install pipx if not already installed (macOS)
+brew install pipx
+pipx ensurepath
+
+# Install grafana-publisher
+pipx install grafana-publisher
+```
+
+#### Using pip
+```bash
+pip install grafana-publisher
+```
+
 ### Manual Installation
 
 #### From GitHub
@@ -29,16 +61,8 @@ curl -sSL https://raw.githubusercontent.com/jStrider/grafana-publisher/main/inst
 git clone https://github.com/jStrider/grafana-publisher.git
 cd grafana-publisher
 
-# Install with pip
-pip install -e .
-
-# Or use the install script
+# Run the interactive installer
 ./install.sh
-```
-
-#### From PyPI (when available)
-```bash
-pip install grafana-publisher
 ```
 
 ### Development Installation
@@ -46,6 +70,18 @@ pip install grafana-publisher
 # Clone and install with dev dependencies
 git clone https://github.com/jStrider/grafana-publisher.git
 cd grafana-publisher
+
+# Using uv (recommended for development)
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Or using standard pip
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+
+# Or using make
 make install-dev
 ```
 
