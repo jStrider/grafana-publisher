@@ -18,6 +18,7 @@ class InstallMethod(Enum):
     
     PIP = "pip"
     PIPX = "pipx"
+    UV = "uv"
     HOMEBREW = "homebrew"
     GITHUB_RELEASE = "github"
     DEVELOPMENT = "development"
@@ -48,6 +49,20 @@ def detect_installation_method() -> InstallMethod:
         if result.returncode == 0:
             logger.debug("Detected Homebrew installation")
             return InstallMethod.HOMEBREW
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    
+    # Check if installed via uv
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "list"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if "grafana-publisher" in result.stdout:
+            logger.debug("Detected uv installation")
+            return InstallMethod.UV
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
     
@@ -114,6 +129,22 @@ def attempt_auto_upgrade(install_method: InstallMethod, target_version: str) -> 
             else:
                 error_msg = result.stderr.strip() if result.stderr else "Unknown error"
                 return False, f"pip upgrade failed: {error_msg}"
+                
+        except subprocess.TimeoutExpired:
+            return False, "Upgrade timed out"
+        except Exception as e:
+            return False, f"Upgrade error: {str(e)}"
+    
+    elif install_method == InstallMethod.UV:
+        try:
+            cmd = ["uv", "tool", "upgrade", "grafana-publisher"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                return True, f"Successfully upgraded to version {target_version}"
+            else:
+                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                return False, f"uv upgrade failed: {error_msg}"
                 
         except subprocess.TimeoutExpired:
             return False, "Upgrade timed out"
@@ -261,6 +292,7 @@ def get_upgrade_command(install_method: InstallMethod) -> str:
     """
     commands = {
         InstallMethod.PIP: "pip install --upgrade grafana-publisher",
+        InstallMethod.UV: "uv tool upgrade grafana-publisher",
         InstallMethod.PIPX: "pipx upgrade grafana-publisher",
         InstallMethod.HOMEBREW: "brew upgrade grafana-publisher",
         InstallMethod.DEVELOPMENT: "git pull origin main",
