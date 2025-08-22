@@ -161,13 +161,14 @@ class ClickUpPublisher(BasePublisher):
     def _determine_alert_type(self, description: str) -> Optional[str]:
         """Determine alert type from description."""
         patterns = {
-            "alerte stockage": [r"partition", r"disk.*space"],
-            "alerte mémoire": [r"Memory usage", r"RAM"],
-            "alerte CPU": [r"CPU usage", r"processor"],
-            "alerte systemd service": [r"systemd", r"service.*down"],
-            "alerte certificat": [r"certificate.*expire", r"SSL"],
-            "backup failed": [r"backup failed", r"backup.*error"],
-            "server down": [r"instance.*down", r"server.*unreachable"]
+            "backup failed": [r"backup\s+failed", r"backup.*error"],
+            "alerte stockage": [r"partition", r"disk.*space", r"disk.*usage", r"storage"],
+            "alerte mémoire": [r"memory\s+usage", r"ram", r"memory.*high"],
+            "alerte CPU": [r"cpu\s+usage", r"processor", r"cpu.*high"],
+            "alerte systemd service": [r"systemd", r"service.*down", r"service.*failed"],
+            "alerte certificat": [r"certificate.*expire", r"ssl", r"cert.*expire", r"expire.*days"],
+            "server down": [r"instance.*down", r"server.*unreachable", r"instance.*unreachable"],
+            "alerte RAID": [r"raid.*degraded", r"raid.*failed", r"raid.*error"]
         }
         
         for alert_type, regex_patterns in patterns.items():

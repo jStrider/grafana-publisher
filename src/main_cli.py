@@ -26,6 +26,7 @@ from src.scrapers.grafana import GrafanaScraper
 from src.publishers.clickup import ClickUpPublisher
 from src.processors.alert_processor import AlertProcessor
 from src.processors.field_mapper import FieldMapper
+from src.commands.doctor import Doctor
 
 
 console = Console()
@@ -65,6 +66,15 @@ def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
                 console.print(format_update_message(update_info[0], update_info[1]))
         except Exception:
             pass  # Silently ignore update check failures
+    
+    # Commands that don't require config
+    no_config_commands = ["init", "doctor", "version"]
+    
+    # Skip config loading for commands that don't need it
+    if ctx.invoked_subcommand in no_config_commands:
+        ctx.obj["config"] = None
+        ctx.obj["verbose"] = verbose
+        return
     
     try:
         # Try multiple config locations
@@ -210,35 +220,19 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     # Publish each alert
     for processed in track(processed_alerts, description="Publishing alerts..."):
         alert = processed["alert"]
-        # Generate the actual task name that will be created
-        alert_type = ""
-        if "title" in processed:
-            # Extract alert type from title if available
+        # Generate the actual task name using publisher's logic
+        base_name = f"[{alert.customer_id}][{alert.vm}]"
+        
+        # Use publisher's alert type detection if available
+        if hasattr(pub, '_determine_alert_type'):
+            alert_type = pub._determine_alert_type(alert.description)
+            alert_name = f"{base_name} {alert_type}" if alert_type else base_name
+        elif "title" in processed:
+            # Use processed title if available
             alert_name = processed["title"]
         else:
-            # Fallback to basic format with alert type detection
-            base_name = f"[{alert.customer_id}][{alert.vm}]"
-            
-            # Determine alert type from description (same logic as ClickUp publisher)
-            description = alert.description.lower()
-            if "backup failed" in description:
-                alert_name = f"{base_name} backup failed"
-            elif "partition" in description or "disk" in description:
-                alert_name = f"{base_name} alerte stockage"
-            elif "memory usage" in description or "ram" in description:
-                alert_name = f"{base_name} alerte mémoire"
-            elif "cpu usage" in description or "processor" in description:
-                alert_name = f"{base_name} alerte CPU"
-            elif "systemd" in description or "service" in description:
-                alert_name = f"{base_name} alerte systemd service"
-            elif "certificate" in description or "ssl" in description or "expire" in description:
-                alert_name = f"{base_name} alerte certificat"
-            elif "instance" in description and "down" in description:
-                alert_name = f"{base_name} server down"
-            elif "raid" in description and "degraded" in description:
-                alert_name = f"{base_name} alerte RAID"
-            else:
-                alert_name = base_name
+            # Fallback to basic name
+            alert_name = base_name
         
         if interactive and not dry_run:
             console.print(f"\n[bold]Alert:[/bold] {alert_name}")
@@ -253,15 +247,27 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
         # Create Text object to avoid markup interpretation
         alert_text = Text(alert_name)
         
+        # Truncate description for display
+        description_display = alert.description[:80] + "..." if len(alert.description) > 80 else alert.description
+        
         if result.success:
             if dry_run:
-                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", result.skipped_reason or "")
+                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", description_display)
             else:
                 table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_url or "")
             created += 1
         elif result.skipped:
-            table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.skipped_reason or "")
-            skipped += 1
+            if "already exists" in (result.skipped_reason or "").lower():
+                # For existing tasks, show the ticket ID if available
+                table.add_row(alert_text, "[yellow]EXISTS[/yellow]", f"ID: {result.ticket_id}" if result.ticket_id else description_display)
+                skipped += 1
+            elif dry_run and "dry run" in (result.skipped_reason or "").lower():
+                # For dry run, show the alert description
+                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", description_display)
+                created += 1
+            else:
+                table.add_row(alert_text, "[yellow]SKIPPED[/yellow]", result.skipped_reason or "")
+                skipped += 1
         else:
             table.add_row(alert_text, "[red]FAILED[/red]", result.error or "")
             failed += 1
@@ -537,6 +543,41 @@ def version(check):
                 console.print(f"[green]✓ You are running the latest version[/green]")
         else:
             console.print("[yellow]Could not check for updates[/yellow]")
+
+
+@cli.command()
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed output"
+)
+def doctor(verbose: bool):
+    """Run diagnostics to check system health and configuration."""
+    # Doctor command should work without config
+    config = None
+    
+    # Try to load config if available
+    config_paths = [
+        Path.home() / ".config" / "grafana-publisher" / "config.yaml",
+        Path("config") / "config.yaml",
+        Path.cwd() / "config.yaml",
+    ]
+    
+    for cfg_path in config_paths:
+        if cfg_path.exists():
+            try:
+                config = Config.from_file(cfg_path)
+                break
+            except Exception:
+                pass  # Config might be invalid, doctor will report it
+    
+    # Run diagnostics
+    doc = Doctor(config)
+    success = doc.run_diagnostics(verbose=verbose)
+    
+    # Exit with appropriate code
+    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
