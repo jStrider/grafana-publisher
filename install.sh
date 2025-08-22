@@ -121,8 +121,8 @@ if [[ "$OS_TYPE" == "macos" ]]; then
                     # Clone from GitHub
                     TEMP_DIR=$(mktemp -d)
                     cd "$TEMP_DIR"
-                    echo -e "${YELLOW}Cloning repository...${NC}"
-                    git clone "$REPO_URL" grafana-publisher
+                    echo -e "${YELLOW}Cloning repository from main branch...${NC}"
+                    git clone -b main "$REPO_URL" grafana-publisher
                     INSTALL_PATH="./grafana-publisher"
                 fi
                 
@@ -163,8 +163,8 @@ if [[ "$OS_TYPE" == "macos" ]]; then
                     # Clone and install
                     TEMP_DIR=$(mktemp -d)
                     cd "$TEMP_DIR"
-                    echo -e "${YELLOW}Cloning repository...${NC}"
-                    git clone "$REPO_URL" grafana-publisher
+                    echo -e "${YELLOW}Cloning repository from main branch...${NC}"
+                    git clone -b main "$REPO_URL" grafana-publisher
                     cd grafana-publisher
                     pip install -e .
                     INSTALL_PATH="."
@@ -242,7 +242,7 @@ else
             echo -e "${BLUE}Installing from GitHub...${NC}"
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone "$REPO_URL" grafana-publisher
+            git clone -b main "$REPO_URL" grafana-publisher
             cd grafana-publisher
             pip3 install --user -e .
             mkdir -p "$CONFIG_DIR"
