@@ -13,6 +13,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
+from rich.text import Text
 
 from src.core.config import Config
 from src.core.logger import setup_logging, get_logger
@@ -209,6 +210,7 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     # Publish each alert
     for processed in track(processed_alerts, description="Publishing alerts..."):
         alert = processed["alert"]
+        # Use plain text for alert name (Rich will handle escaping)
         alert_name = f"[{alert.customer_id}][{alert.vm}]"
         
         if interactive and not dry_run:
@@ -221,17 +223,20 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
         
         result = pub.publish(alert, dry_run=dry_run)
         
+        # Create Text object to avoid markup interpretation
+        alert_text = Text(alert_name)
+        
         if result.success:
             if dry_run:
-                table.add_row(alert_name, "[cyan]WOULD CREATE[/cyan]", result.skipped_reason or "")
+                table.add_row(alert_text, "[cyan]WOULD CREATE[/cyan]", result.skipped_reason or "")
             else:
-                table.add_row(alert_name, "[green]CREATED[/green]", result.ticket_url or "")
+                table.add_row(alert_text, "[green]CREATED[/green]", result.ticket_url or "")
             created += 1
         elif result.skipped:
-            table.add_row(alert_name, "[yellow]EXISTS[/yellow]", result.skipped_reason or "")
+            table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.skipped_reason or "")
             skipped += 1
         else:
-            table.add_row(alert_name, "[red]FAILED[/red]", result.error or "")
+            table.add_row(alert_text, "[red]FAILED[/red]", result.error or "")
             failed += 1
     
     # Display results
