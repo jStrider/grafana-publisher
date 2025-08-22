@@ -30,246 +30,288 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Detect OS
-OS_TYPE="unknown"
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    OS_TYPE="macos"
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    OS_TYPE="linux"
+# Function to detect if we're in a git repository
+in_git_repo() {
+    git rev-parse --git-dir > /dev/null 2>&1
+}
+
+# Function to get current git branch
+get_current_branch() {
+    git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
+}
+
+# Check if we're running from within the repository
+if [ -f "pyproject.toml" ] && [ -d "src" ] && in_git_repo; then
+    IN_REPO=true
+    CURRENT_BRANCH=$(get_current_branch)
+    echo -e "${GREEN}Running from repository (branch: $CURRENT_BRANCH)${NC}"
+else
+    IN_REPO=false
 fi
 
-# Check prerequisites
+# Detect OS
+OS="$(uname -s)"
+
+echo ""
 echo -e "${YELLOW}Checking prerequisites...${NC}"
 
-if ! command_exists python3; then
-    echo -e "${RED}✗ Python 3 is not installed${NC}"
-    if [[ "$OS_TYPE" == "macos" ]]; then
-        echo "  Install with: brew install python3"
-    fi
-    exit 1
-fi
-echo -e "${GREEN}✓ Python 3 found${NC}"
-
-if ! command_exists git; then
-    echo -e "${RED}✗ git is not installed${NC}"
-    if [[ "$OS_TYPE" == "macos" ]]; then
-        echo "  Install with: brew install git"
-    fi
-    exit 1
-fi
-echo -e "${GREEN}✓ git found${NC}"
-
-# Check for pipx (preferred on macOS)
-if [[ "$OS_TYPE" == "macos" ]] && command_exists pipx; then
-    echo -e "${GREEN}✓ pipx found (recommended for macOS)${NC}"
-    USE_PIPX=true
+# Check Python
+if command_exists python3; then
+    echo -e "${GREEN}✓ Python 3 found${NC}"
 else
-    USE_PIPX=false
+    echo -e "${RED}✗ Python 3 not found${NC}"
+    echo "Please install Python 3 first"
+    exit 1
 fi
 
-# Installation method selection
+# Check git
+if command_exists git; then
+    echo -e "${GREEN}✓ git found${NC}"
+else
+    echo -e "${RED}✗ git not found${NC}"
+    echo "Please install git first"
+    exit 1
+fi
+
+# Check for pipx on macOS
+USE_PIPX=false
+if [[ "$OS" == "Darwin" ]]; then
+    if command_exists pipx; then
+        echo -e "${GREEN}✓ pipx found (recommended for macOS)${NC}"
+        USE_PIPX=true
+    else
+        echo -e "${YELLOW}! pipx not found (recommended for macOS)${NC}"
+        echo "  Install with: brew install pipx"
+    fi
+fi
+
 echo ""
 echo -e "${YELLOW}Select installation method:${NC}"
 
-if [[ "$OS_TYPE" == "macos" ]]; then
-    if [[ "$USE_PIPX" == "true" ]]; then
-        echo "1) Install with pipx (recommended for macOS)"
-        echo "2) Install with virtual environment"
-        echo "3) Install from current directory (development)"
-        read -p "Choice [1-3]: " INSTALL_METHOD
-    else
-        echo "1) Install with virtual environment (recommended)"
-        echo "2) Install from current directory (development)"
-        echo "3) Install with pipx (requires: brew install pipx)"
-        read -p "Choice [1-3]: " INSTALL_METHOD
-        
-        # Adjust choice numbers if pipx is not available
-        if [[ "$INSTALL_METHOD" == "3" ]]; then
-            echo -e "${YELLOW}Installing pipx first...${NC}"
-            if command_exists brew; then
-                brew install pipx
-                pipx ensurepath
-                export PATH="$HOME/.local/bin:$PATH"
-                USE_PIPX=true
-                INSTALL_METHOD="1"
-            else
-                echo -e "${RED}Homebrew not found. Please install pipx manually.${NC}"
-                exit 1
-            fi
-        elif [[ "$INSTALL_METHOD" == "2" ]]; then
-            INSTALL_METHOD="3"  # Map to development install
-        fi
-    fi
-else
-    echo "1) Install from GitHub (recommended)"
-    echo "2) Install from current directory (development)"
-    echo "3) Install with pip (when published to PyPI)"
+# Different options based on context and OS
+if $IN_REPO; then
+    # Running from within repo
+    echo "1) Install from current directory (development mode)"
+    echo "2) Install with pipx (isolated environment)"
+    echo "3) Install with virtual environment"
     read -p "Choice [1-3]: " INSTALL_METHOD
-fi
-
-# Handle installation based on OS and method
-if [[ "$OS_TYPE" == "macos" ]]; then
+    
     case $INSTALL_METHOD in
         1)
-            if [[ "$USE_PIPX" == "true" ]]; then
-                echo -e "${BLUE}Installing with pipx...${NC}"
-                
-                # Check if we're in the project directory
-                if [ -f "setup.py" ]; then
-                    INSTALL_PATH="."
-                else
-                    # Clone from GitHub
-                    TEMP_DIR=$(mktemp -d)
-                    cd "$TEMP_DIR"
-                    echo -e "${YELLOW}Cloning repository from main branch...${NC}"
-                    git clone -b main "$REPO_URL" grafana-publisher
-                    INSTALL_PATH="./grafana-publisher"
-                fi
-                
-                echo -e "${YELLOW}Installing package with pipx...${NC}"
-                pipx install "$INSTALL_PATH"
-                
-                # Copy config files  
-                mkdir -p "$CONFIG_DIR"
-                if [ -f "$INSTALL_PATH/config/config.example.yaml" ]; then
-                    [ ! -f "$CONFIG_DIR/config.yaml" ] && cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.yaml"
-                    cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.example.yaml"
-                fi
-                
-                # Cleanup if we cloned
-                if [ -n "$TEMP_DIR" ]; then
-                    cd /
-                    rm -rf "$TEMP_DIR"
-                fi
+            echo -e "${BLUE}Installing from current directory...${NC}"
+            if command_exists pipx && $USE_PIPX; then
+                pipx install -e .
             else
-                # Virtual environment installation
-                echo -e "${BLUE}Installing with virtual environment...${NC}"
-                
-                # Create venv directory
-                mkdir -p "$(dirname "$VENV_DIR")"
-                
-                # Create virtual environment
-                echo -e "${YELLOW}Creating virtual environment...${NC}"
-                python3 -m venv "$VENV_DIR"
-                
-                # Activate and install
-                source "$VENV_DIR/bin/activate"
-                
-                if [ -f "setup.py" ]; then
-                    echo -e "${YELLOW}Installing from current directory...${NC}"
-                    pip install -e .
-                    INSTALL_PATH="."
-                else
-                    # Clone and install
-                    TEMP_DIR=$(mktemp -d)
-                    cd "$TEMP_DIR"
-                    echo -e "${YELLOW}Cloning repository from main branch...${NC}"
-                    git clone -b main "$REPO_URL" grafana-publisher
-                    cd grafana-publisher
-                    pip install -e .
-                    INSTALL_PATH="."
-                fi
-                
-                # Create wrapper script
-                mkdir -p "$INSTALL_DIR"
-                cat > "$INSTALL_DIR/grafana-publisher" << 'EOF'
-#!/bin/bash
-source "$HOME/.local/share/grafana-publisher/venv/bin/activate"
-exec python -m src.cli "$@"
-EOF
-                chmod +x "$INSTALL_DIR/grafana-publisher"
-                ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gp"
-                
-                # Copy config files
-                mkdir -p "$CONFIG_DIR"
-                [ ! -f "$CONFIG_DIR/config.yaml" ] && cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.yaml"
-                cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.example.yaml"
-                
-                # Cleanup
-                if [ -n "$TEMP_DIR" ]; then
-                    cd /
-                    rm -rf "$TEMP_DIR"
-                fi
-                
-                deactivate
+                pip3 install --user -e .
             fi
+            
+            # Copy config
+            mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
+            cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
             ;;
-        
-        2|3)
-            echo -e "${BLUE}Installing from current directory (development)...${NC}"
             
-            if [ ! -f "setup.py" ]; then
-                echo -e "${RED}✗ setup.py not found. Please run from grafana-publisher directory${NC}"
-                exit 1
+        2)
+            echo -e "${BLUE}Installing with pipx...${NC}"
+            if ! command_exists pipx; then
+                echo -e "${YELLOW}Installing pipx first...${NC}"
+                if [[ "$OS" == "Darwin" ]] && command_exists brew; then
+                    brew install pipx
+                    pipx ensurepath
+                else
+                    python3 -m pip install --user pipx
+                    python3 -m pipx ensurepath
+                fi
             fi
+            pipx install .
             
-            # Create virtual environment for development
-            echo -e "${YELLOW}Creating development virtual environment...${NC}"
-            python3 -m venv venv
-            source venv/bin/activate
+            # Copy config
+            mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
+            cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
+            ;;
             
-            echo -e "${YELLOW}Installing package in development mode...${NC}"
-            pip install -e ".[dev]"
+        3)
+            echo -e "${BLUE}Installing with virtual environment...${NC}"
+            
+            # Create venv
+            python3 -m venv "$VENV_DIR"
+            source "$VENV_DIR/bin/activate"
+            pip install -e .
             
             # Create wrapper script
             mkdir -p "$INSTALL_DIR"
-            CURRENT_DIR=$(pwd)
             cat > "$INSTALL_DIR/grafana-publisher" << EOF
 #!/bin/bash
-source "$CURRENT_DIR/venv/bin/activate"
-exec python "$CURRENT_DIR/main.py" "\$@"
+source "$VENV_DIR/bin/activate"
+exec python -m src.main_cli "\$@"
 EOF
             chmod +x "$INSTALL_DIR/grafana-publisher"
-            ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gp"
             
-            # Copy config files
+            # Create gpub alias
+            ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gpub"
+            
+            # Copy config
             mkdir -p "$CONFIG_DIR"
             [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
-            
-            deactivate
             ;;
-        
+            
         *)
             echo -e "${RED}Invalid choice${NC}"
             exit 1
             ;;
     esac
-else
-    # Linux installation (original logic)
+    
+elif [[ "$OS" == "Darwin" ]] && $USE_PIPX; then
+    # macOS with pipx available
+    echo "1) Install with pipx (recommended)"
+    echo "2) Install with virtual environment"
+    read -p "Choice [1-2]: " INSTALL_METHOD
+    
     case $INSTALL_METHOD in
         1)
-            echo -e "${BLUE}Installing from GitHub...${NC}"
+            echo -e "${BLUE}Installing with pipx...${NC}"
+            
+            # Clone from GitHub (main branch for stable)
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone -b main "$REPO_URL" grafana-publisher
+            echo -e "${YELLOW}Cloning repository...${NC}"
+            git clone "$REPO_URL" grafana-publisher
             cd grafana-publisher
-            pip3 install --user -e .
+            
+            # Check latest version tag and checkout
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LATEST_TAG" ]; then
+                echo -e "${YELLOW}Using latest release: $LATEST_TAG${NC}"
+                git checkout "$LATEST_TAG"
+            else
+                echo -e "${YELLOW}Using main branch${NC}"
+                git checkout main
+            fi
+            
+            pipx install .
+            
+            # Copy config files  
             mkdir -p "$CONFIG_DIR"
             [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
+            
+            # Cleanup
             cd /
             rm -rf "$TEMP_DIR"
             ;;
-        
+            
         2)
-            echo -e "${BLUE}Installing from current directory...${NC}"
-            if [ ! -f "setup.py" ]; then
-                echo -e "${RED}✗ setup.py not found${NC}"
-                exit 1
+            echo -e "${BLUE}Installing with virtual environment...${NC}"
+            
+            # Clone from GitHub
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            echo -e "${YELLOW}Cloning repository...${NC}"
+            git clone "$REPO_URL" grafana-publisher
+            cd grafana-publisher
+            
+            # Check latest version tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LATEST_TAG" ]; then
+                echo -e "${YELLOW}Using latest release: $LATEST_TAG${NC}"
+                git checkout "$LATEST_TAG"
+            else
+                echo -e "${YELLOW}Using main branch${NC}"
+                git checkout main
             fi
-            pip3 install --user -e .
+            
+            # Create venv
+            python3 -m venv "$VENV_DIR"
+            source "$VENV_DIR/bin/activate"
+            pip install .
+            
+            # Create wrapper script
+            mkdir -p "$INSTALL_DIR"
+            cat > "$INSTALL_DIR/grafana-publisher" << 'EOF'
+#!/bin/bash
+source "$HOME/.local/share/grafana-publisher/venv/bin/activate"
+exec python -m src.main_cli "$@"
+EOF
+            chmod +x "$INSTALL_DIR/grafana-publisher"
+            
+            # Create gpub alias
+            ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gpub"
+            
+            # Copy config
             mkdir -p "$CONFIG_DIR"
             [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
+            
+            # Cleanup
+            cd /
+            rm -rf "$TEMP_DIR"
             ;;
-        
-        3)
-            echo -e "${BLUE}Installing from PyPI...${NC}"
-            pip3 install --user grafana-publisher
+            
+        *)
+            echo -e "${RED}Invalid choice${NC}"
+            exit 1
+            ;;
+    esac
+    
+else
+    # Linux or macOS without pipx
+    echo "1) Install from GitHub (latest release)"
+    echo "2) Install from GitHub (development version)"
+    read -p "Choice [1-2]: " INSTALL_METHOD
+    
+    case $INSTALL_METHOD in
+        1)
+            echo -e "${BLUE}Installing latest release...${NC}"
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            
+            echo -e "${YELLOW}Cloning repository...${NC}"
+            git clone "$REPO_URL" grafana-publisher
+            cd grafana-publisher
+            
+            # Check latest version tag and checkout
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LATEST_TAG" ]; then
+                echo -e "${YELLOW}Using latest release: $LATEST_TAG${NC}"
+                git checkout "$LATEST_TAG"
+            else
+                echo -e "${YELLOW}Using main branch${NC}"
+                git checkout main
+            fi
+            
+            pip3 install --user .
+            
+            # Copy config
             mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
+            cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
+            
+            cd /
+            rm -rf "$TEMP_DIR"
             ;;
-        
+            
+        2)
+            echo -e "${BLUE}Installing development version...${NC}"
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            
+            echo -e "${YELLOW}Cloning repository (develop branch)...${NC}"
+            git clone -b develop "$REPO_URL" grafana-publisher
+            cd grafana-publisher
+            
+            pip3 install --user -e .
+            
+            # Copy config
+            mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
+            cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
+            
+            cd /
+            rm -rf "$TEMP_DIR"
+            ;;
+            
         *)
             echo -e "${RED}Invalid choice${NC}"
             exit 1
@@ -277,23 +319,10 @@ else
     esac
 fi
 
-# Verify installation
-echo ""
-echo -e "${YELLOW}Verifying installation...${NC}"
-
-if command_exists grafana-publisher; then
-    echo -e "${GREEN}✓ grafana-publisher command is available${NC}"
-elif [ -f "$INSTALL_DIR/grafana-publisher" ]; then
-    echo -e "${GREEN}✓ grafana-publisher installed at $INSTALL_DIR${NC}"
-elif command_exists pipx && pipx list | grep -q grafana-publisher; then
-    echo -e "${GREEN}✓ grafana-publisher installed with pipx${NC}"
-else
-    echo -e "${YELLOW}⚠ Installation complete but command may not be in PATH${NC}"
-fi
-
-# Add to PATH if not already there
-if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    echo -e "${YELLOW}Adding $HOME/.local/bin to PATH...${NC}"
+# Add to PATH if needed
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo ""
+    echo -e "${YELLOW}Adding $INSTALL_DIR to PATH...${NC}"
     
     # Detect shell
     if [ -n "$ZSH_VERSION" ]; then
@@ -304,56 +333,37 @@ if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
         SHELL_RC="$HOME/.profile"
     fi
     
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
-    echo -e "${GREEN}✓ Added to $SHELL_RC${NC}"
-    echo -e "${YELLOW}  Run 'source $SHELL_RC' to update current session${NC}"
+    echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_RC"
+    export PATH="$PATH:$INSTALL_DIR"
 fi
 
-# Configuration setup
-echo ""
-echo -e "${YELLOW}Setting up configuration...${NC}"
-
-if [ -f "$CONFIG_DIR/config.yaml" ]; then
-    echo -e "${GREEN}✓ Configuration file ready at:${NC}"
-    echo "  $CONFIG_DIR/config.yaml"
-    echo ""
-    echo -e "${YELLOW}⚠️  IMPORTANT - Update your configuration:${NC}"
-    echo ""
-    echo -e "${BLUE}1. Edit the configuration file:${NC}"
-    echo "   nano $CONFIG_DIR/config.yaml"
-    echo ""
-    echo "   Key values to update:"
-    echo "   • grafana.url → Your Grafana URL"
-    echo "   • grafana.sources[0].folder_id → Your folder ID"
-    echo "   • publishers.clickup.list_id → Your ClickUp list ID"
-    echo ""
-    echo -e "${BLUE}2. Set your API tokens:${NC}"
-    echo "   export GRAFANA_API_TOKEN='your_token'"
-    echo "   export CLICKUP_API_TOKEN='your_token'"
-    echo ""
-    echo "   Or add them directly in config.yaml (less secure)"
-else
-    echo -e "${RED}✗ Configuration file was not created${NC}"
-fi
-
-# Final message
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║     Installation Complete!                ║${NC}"
+echo -e "${GREEN}║        Installation Complete!              ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${BLUE}Usage:${NC}"
-echo "  grafana-publisher --help      # Show help"
-echo "  grafana-publisher test        # Test connections"
-echo "  grafana-publisher publish -d  # Dry run"
-echo "  gp publish                    # Short command"
+echo -e "${GREEN}Grafana Publisher has been installed successfully!${NC}"
 echo ""
-echo -e "${BLUE}Next steps:${NC}"
-echo "1. Configure your API tokens"
-echo "2. Edit $CONFIG_DIR/config.yaml"
-echo "3. Run 'grafana-publisher test' to verify setup"
+echo "Configuration file: $CONFIG_DIR/config.yaml"
+echo ""
+echo "Next steps:"
+echo "1. Edit the configuration file:"
+echo "   ${BLUE}nano $CONFIG_DIR/config.yaml${NC}"
+echo ""
+echo "2. Add your Grafana and ClickUp/Jira credentials"
+echo ""
+echo "3. Test the connection:"
+echo "   ${BLUE}grafana-publisher test${NC}"
+echo ""
+echo "Usage:"
+echo "   ${BLUE}grafana-publisher --help${NC}"
+echo "   ${BLUE}gpub --help${NC} (short alias)"
 echo ""
 
-# Skip update check on first install since we just installed
-
-echo -e "${GREEN}Happy monitoring! 🚀${NC}"
+# Check if grafana-publisher is available
+if command_exists grafana-publisher || command_exists gpub; then
+    echo -e "${GREEN}✓ Command 'grafana-publisher' is available${NC}"
+else
+    echo -e "${YELLOW}! You may need to restart your terminal or run:${NC}"
+    echo "  ${BLUE}source $SHELL_RC${NC}"
+fi
