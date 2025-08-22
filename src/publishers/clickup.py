@@ -9,97 +9,91 @@ from src.core.cache import CacheManager
 from src.core.config import ClickUpConfig
 from src.core.logger import get_logger
 from src.publishers.base import BasePublisher, PublishResult
-from src.scrapers.base import Alert
 from src.publishers.field_resolver import FieldResolver
-
+from src.scrapers.base import Alert
 
 logger = get_logger(__name__)
 
 
 class ClickUpPublisher(BasePublisher):
     """Publisher for ClickUp tickets."""
-    
+
     def __init__(self, config: ClickUpConfig):
         """
         Initialize ClickUp publisher.
-        
+
         Args:
             config: ClickUp configuration
         """
         self.config = config
         self.session = self._create_session()
-        self.cache = CacheManager(
-            config.cache.path,
-            config.cache.ttl
-        ) if config.cache.enabled else None
+        self.cache = (
+            CacheManager(config.cache.path, config.cache.ttl) if config.cache.enabled else None
+        )
         self._existing_tasks = None
         self._field_resolver = None
         self._list_info = None
-    
+
     def _create_session(self) -> requests.Session:
         """Create HTTP session."""
         session = requests.Session()
-        session.headers.update({
-            "Authorization": self.config.token,
-            "Content-Type": "application/json"
-        })
+        session.headers.update(
+            {"Authorization": self.config.token, "Content-Type": "application/json"}
+        )
         return session
-    
+
     def test_connection(self) -> bool:
         """Test connection to ClickUp API."""
         try:
-            response = self.session.get(
-                f"{self.config.api_url}/api/v2/list/{self.config.list_id}"
-            )
+            response = self.session.get(f"{self.config.api_url}/api/v2/list/{self.config.list_id}")
             response.raise_for_status()
             logger.info("ClickUp connection successful")
             return True
         except requests.RequestException as e:
             logger.error("ClickUp connection failed", error=str(e))
             return False
-    
+
     def get_existing_tickets(self) -> List[Dict[str, Any]]:
         """Get list of existing tickets from ClickUp."""
         if self._existing_tasks is not None:
             return self._existing_tasks
-        
+
         try:
             # When subtasks=true, the API returns ALL tasks (main + subtasks) in one call
             params = {
                 "archived": "false",
-                "subtasks": "true" if self.config.check_subtasks else "false"
+                "subtasks": "true" if self.config.check_subtasks else "false",
             }
             response = self.session.get(
-                f"{self.config.api_url}/api/v2/list/{self.config.list_id}/task",
-                params=params
+                f"{self.config.api_url}/api/v2/list/{self.config.list_id}/task", params=params
             )
             response.raise_for_status()
             tasks = response.json().get("tasks", [])
-            
+
             if self.config.check_subtasks:
                 logger.info(f"Fetched {len(tasks)} tasks (including subtasks)")
             else:
                 logger.info(f"Fetched {len(tasks)} main tasks")
-            
+
             self._existing_tasks = tasks
             return self._existing_tasks
         except requests.RequestException as e:
             logger.error("Failed to fetch existing tasks", error=str(e))
             return []
-    
+
     def check_existing(self, alert: Alert) -> Optional[str]:
         """Check if a ticket already exists for this alert."""
         task_name = self._generate_task_name(alert)
-        
+
         # Get all tasks (subtasks are included if check_subtasks=true)
         existing_tasks = self.get_existing_tickets()
-        
+
         for task in existing_tasks:
             if task.get("name") == task_name:
                 return task.get("id")
-        
+
         return None
-    
+
     def publish(self, alert: Alert, dry_run: bool = False) -> PublishResult:
         """Publish an alert to ClickUp."""
         # Check if task already exists
@@ -108,59 +102,49 @@ class ClickUpPublisher(BasePublisher):
             return PublishResult(
                 success=False,
                 skipped=True,
-                skipped_reason=f"Task already exists",
+                skipped_reason="Task already exists",
                 ticket_id=existing_id,
-                ticket_url=f"https://app.clickup.com/t/{existing_id}"
+                ticket_url=f"https://app.clickup.com/t/{existing_id}",
             )
-        
+
         if dry_run:
             task_name = self._generate_task_name(alert)
             return PublishResult(
-                success=True,
-                skipped=True,
-                skipped_reason=f"Dry run - would create: {task_name}"
+                success=True, skipped=True, skipped_reason=f"Dry run - would create: {task_name}"
             )
-        
+
         # Create the task
         try:
             task_data = self._prepare_task_data(alert)
             response = self.session.post(
-                f"{self.config.api_url}/api/v2/list/{self.config.list_id}/task",
-                json=task_data
+                f"{self.config.api_url}/api/v2/list/{self.config.list_id}/task", json=task_data
             )
             response.raise_for_status()
-            
+
             result = response.json()
             task_id = result.get("id")
-            
-            logger.info("Task created successfully", 
-                       task_id=task_id, 
-                       name=task_data["name"])
-            
+
+            logger.info("Task created successfully", task_id=task_id, name=task_data["name"])
+
             return PublishResult(
-                success=True,
-                ticket_id=task_id,
-                ticket_url=f"https://app.clickup.com/t/{task_id}"
+                success=True, ticket_id=task_id, ticket_url=f"https://app.clickup.com/t/{task_id}"
             )
-            
+
         except requests.RequestException as e:
             logger.error("Failed to create task", error=str(e))
-            return PublishResult(
-                success=False,
-                error=str(e)
-            )
-    
+            return PublishResult(success=False, error=str(e))
+
     def _generate_task_name(self, alert: Alert) -> str:
         """Generate task name from alert."""
         base_name = f"[{alert.customer_id}][{alert.vm}]"
-        
+
         # Determine alert type from description
         alert_type = self._determine_alert_type(alert.description)
         if alert_type:
             return f"{base_name} {alert_type}"
-        
+
         return base_name
-    
+
     def _determine_alert_type(self, description: str) -> Optional[str]:
         """Determine alert type from description."""
         patterns = {
@@ -171,23 +155,23 @@ class ClickUpPublisher(BasePublisher):
             "alerte systemd service": [r"systemd", r"service.*down", r"service.*failed"],
             "alerte certificat": [r"certificate.*expire", r"ssl", r"cert.*expire", r"expire.*days"],
             "server down": [r"instance.*down", r"server.*unreachable", r"instance.*unreachable"],
-            "alerte RAID": [r"raid.*degraded", r"raid.*failed", r"raid.*error"]
+            "alerte RAID": [r"raid.*degraded", r"raid.*failed", r"raid.*error"],
         }
-        
+
         for alert_type, regex_patterns in patterns.items():
             for pattern in regex_patterns:
                 if re.search(pattern, description, re.IGNORECASE):
                     return alert_type
-        
+
         return None
-    
+
     def _get_field_resolver(self) -> FieldResolver:
         """Get or create field resolver."""
         if self._field_resolver is None:
             fields = self.get_field_definitions()
             self._field_resolver = FieldResolver(fields)
         return self._field_resolver
-    
+
     def _get_list_info(self) -> Dict[str, Any]:
         """Get list information including statuses."""
         if self._list_info is None:
@@ -201,168 +185,158 @@ class ClickUpPublisher(BasePublisher):
                 logger.error("Failed to fetch list info", error=str(e))
                 self._list_info = {}
         return self._list_info
-    
+
     def _prepare_task_data(self, alert: Alert) -> Dict[str, Any]:
         """Prepare task data for ClickUp API."""
         task_name = self._generate_task_name(alert)
-        
+
         # Get the initial status dynamically
         list_info = self._get_list_info()
         resolver = self._get_field_resolver()
-        
+
         # Get the first "open" type status or fallback to first status
-        initial_status = resolver.get_status_name(
-            list_info.get("statuses", []), 
-            "open"
-        ) or "To Do"
-        
+        initial_status = resolver.get_status_name(list_info.get("statuses", []), "open") or "To Do"
+
         task_data = {
             "name": task_name,
             "description": alert.description,
             "status": initial_status,
-            "priority": self._map_priority(alert.severity)
+            "priority": self._map_priority(alert.severity),
         }
-        
+
         # Add custom fields if configured
         custom_fields = self._get_custom_fields(alert)
         if custom_fields:
             task_data["custom_fields"] = custom_fields
-        
+
         return task_data
-    
+
     def _map_priority(self, severity: str) -> int:
         """Map severity to ClickUp priority."""
-        mapping = {
-            "critical": 1,
-            "high": 2,
-            "medium": 3,
-            "low": 4
-        }
+        mapping = {"critical": 1, "high": 2, "medium": 3, "low": 4}
         return mapping.get(severity.lower(), 3)
-    
+
     def _get_custom_fields(self, alert: Alert) -> List[Dict[str, Any]]:
         """Get custom fields for the task using dynamic field resolution."""
         custom_fields = []
         resolver = self._get_field_resolver()
-        
+
         # Check if required_fields is configured
-        if not hasattr(self.config, 'required_fields') or not self.config.required_fields:
+        if not hasattr(self.config, "required_fields") or not self.config.required_fields:
             logger.debug("No required_fields configured, using defaults")
             # Use sensible defaults
             self._add_default_fields(custom_fields, alert, resolver)
             return custom_fields
-        
+
         required_fields = self.config.required_fields
-        
+
         # Process each configured field
         for field_key, field_config in required_fields.items():
             if not isinstance(field_config, dict):
                 continue
-                
-            field_name = field_config.get('field_name')
+
+            field_name = field_config.get("field_name")
             if not field_name:
                 logger.warning(f"No field_name for {field_key}")
                 continue
-            
+
             # Get field ID dynamically
             field_id = resolver.get_field_id(field_name)
             if not field_id:
                 logger.warning(f"Field '{field_name}' not found in ClickUp")
                 continue
-            
+
             # Determine the value
             value = self._get_field_value(field_config, alert, resolver)
             if value is not None:
-                custom_fields.append({
-                    "id": field_id,
-                    "value": value
-                })
-        
+                custom_fields.append({"id": field_id, "value": value})
+
         return custom_fields
-    
-    def _add_default_fields(self, custom_fields: List[Dict[str, Any]], alert: Alert, resolver: FieldResolver):
+
+    def _add_default_fields(
+        self, custom_fields: List[Dict[str, Any]], alert: Alert, resolver: FieldResolver
+    ):
         """Add default fields when no configuration is provided."""
         # Try to add common fields
         field_mappings = [
             ("Type support", self._map_alert_to_support_type(alert)),
             ("Type Infra", "Issue Monitoring"),
-            ("categorie infra", "Operationnel")
+            ("categorie infra", "Operationnel"),
         ]
-        
+
         for field_name, option_name in field_mappings:
             field_id = resolver.get_field_id(field_name)
             if field_id:
                 option_id = resolver.get_option_id(field_name, option_name)
                 if option_id:
-                    custom_fields.append({
-                        "id": field_id,
-                        "value": option_id
-                    })
-    
+                    custom_fields.append({"id": field_id, "value": option_id})
+
     def _get_field_value(self, field_config: Dict[str, Any], alert: Alert, resolver: FieldResolver):
         """Get the value for a field based on configuration."""
-        field_name = field_config.get('field_name')
-        
+        field_name = field_config.get("field_name")
+
         # Check if it's a dropdown/labels field that needs option resolution
-        if 'mapping' in field_config:
+        if "mapping" in field_config:
             # This field has alert type mapping
             alert_type = self._determine_alert_type(alert.description)
-            alert_type_key = alert_type.replace("alerte ", "").replace(" ", "_") if alert_type else None
-            
+            alert_type_key = (
+                alert_type.replace("alerte ", "").replace(" ", "_") if alert_type else None
+            )
+
             # Get the option name from mapping
             option_name = None
-            if alert_type_key and alert_type_key in field_config['mapping']:
-                option_name = field_config['mapping'][alert_type_key]
-            elif 'default' in field_config:
-                option_name = field_config['default']
-            
+            if alert_type_key and alert_type_key in field_config["mapping"]:
+                option_name = field_config["mapping"][alert_type_key]
+            elif "default" in field_config:
+                option_name = field_config["default"]
+
             if option_name:
                 # Resolve option name to ID
                 return resolver.get_option_id(field_name, option_name)
-        
-        elif 'default' in field_config:
+
+        elif "default" in field_config:
             # Simple default value - resolve if it's an option
-            default_value = field_config['default']
-            
+            default_value = field_config["default"]
+
             # Try to resolve as option ID first
             option_id = resolver.get_option_id(field_name, default_value)
             if option_id:
                 return option_id
-            
+
             # Otherwise return as is
             return default_value
-        
-        elif field_config.get('use_customer_id'):
+
+        elif field_config.get("use_customer_id"):
             # Special case for hospital field
             if alert.customer_id:
                 # For labels field, try to find the option
                 option_id = resolver.get_option_id(field_name, alert.customer_id)
                 if option_id:
                     # Labels field expects an array
-                    if field_config.get('type') == 'labels':
+                    if field_config.get("type") == "labels":
                         return [option_id]
                     return option_id
-        
+
         return None
-    
+
     def _map_alert_to_support_type(self, alert: Alert) -> str:
         """Map alert to a support type."""
         alert_type = self._determine_alert_type(alert.description)
-        
+
         # Default mapping
         type_mapping = {
             "backup failed": "Issue",
             "alerte stockage": "Problème espace disque",
             "alerte mémoire": "Issue",
-            "alerte CPU": "Issue", 
+            "alerte CPU": "Issue",
             "alerte systemd service": "Services Down",
             "alerte certificat": "Issue",
             "server down": "Services Down",
-            "alerte RAID": "Problème espace disque"
+            "alerte RAID": "Problème espace disque",
         }
-        
+
         return type_mapping.get(alert_type, "Issue")
-    
+
     def get_field_definitions(self) -> Dict[str, Any]:
         """Get field definitions from ClickUp API."""
         if self.cache:
@@ -370,19 +344,19 @@ class ClickUpPublisher(BasePublisher):
             cached_data = self.cache.get("fields")
             if cached_data:
                 return cached_data
-        
+
         try:
             response = self.session.get(
                 f"{self.config.api_url}/api/v2/list/{self.config.list_id}/field"
             )
             response.raise_for_status()
             fields = response.json().get("fields", [])
-            
+
             if self.cache:
                 self.cache.set(fields, "fields")
-            
+
             return fields
-            
+
         except requests.RequestException as e:
             logger.error("Failed to fetch field definitions", error=str(e))
             return []
