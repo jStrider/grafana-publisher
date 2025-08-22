@@ -1,3 +1,15 @@
+# [0.3.0](https://github.com/jStrider/grafana-publisher/compare/v0.2.2...v0.3.0) (2025-08-22)
+
+
+### Bug Fixes
+
+* clone main branch in install script ([bf3401c](https://github.com/jStrider/grafana-publisher/commit/bf3401c396115c1be50bde9280ce266f93d18e58))
+
+
+### Features
+
+* improve install.sh with intelligent branch detection ([380017c](https://github.com/jStrider/grafana-publisher/commit/380017c13d3286b23100b7e0257e686e8b30d08e))
+
 ## [0.2.2](https://github.com/jStrider/grafana-publisher/compare/v0.2.1...v0.2.2) (2025-08-22)
 
 
