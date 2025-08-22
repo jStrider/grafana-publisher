@@ -1,0 +1,202 @@
+# Grafana Publisher Configuration
+# Copy this file to config.yaml and update with your values
+
+# Grafana configuration
+grafana:
+  url: "https://monitoring.example.com"
+  token: "${GRAFANA_API_TOKEN}"  # Can use environment variables
+  verify_ssl: true
+  timeout: 30
+  
+  # Alert sources configuration
+  sources:
+    - name: "production"
+      folder_id: "zP8c_7uGz"
+      rules_group: "Alertes"
+      labels_filter:
+        notification: "infra"
+    
+    - name: "staging"  
+      folder_id: "xY9d_8vHz"
+      rules_group: "Staging Alerts"
+      labels_filter:
+        environment: "staging"
+
+# Publisher configurations
+publishers:
+  clickup:
+    enabled: true
+    api_url: "https://api.clickup.com"
+    token: "${CLICKUP_API_TOKEN}"
+    list_id: "35412629"
+    
+    # Field mappings
+    field_mappings:
+      hospital:
+        type: "dropdown"
+        field_name: "Hôpital"
+        default: "sancare"
+      
+      support_type:
+        type: "dropdown"
+        field_name: "Type support"
+        default: "monitoring"
+    
+    # Cache settings
+    cache:
+      enabled: true
+      ttl: 86400  # 24 hours
+      path: "~/.grafana_publisher_cache.json"
+  
+  jira:
+    enabled: false
+    url: "https://jira.example.com"
+    token: "${JIRA_API_TOKEN}"
+    project_key: "OPS"
+    issue_type: "Incident"
+
+# Alert processing rules
+alert_rules:
+  - name: "disk_space"
+    patterns:
+      - "partition.*"
+      - "disk.*space"
+    priority: "high"
+    template: "storage_alert"
+    fields:
+      support_type: "stockage"
+  
+  - name: "memory"
+    patterns:
+      - "Memory usage.*"
+      - "RAM.*"
+    priority: "medium"
+    template: "performance_alert"
+    fields:
+      support_type: "performance"
+  
+  - name: "cpu"
+    patterns:
+      - "CPU usage.*"
+      - "processor.*"
+    priority: "medium"
+    template: "performance_alert"
+    fields:
+      support_type: "performance"
+  
+  - name: "service"
+    patterns:
+      - "systemd.*"
+      - "service.*down"
+    priority: "high"
+    template: "service_alert"
+    fields:
+      support_type: "application"
+  
+  - name: "certificate"
+    patterns:
+      - "certificate.*expire"
+      - "SSL.*"
+    priority: "medium"
+    template: "certificate_alert"
+    fields:
+      support_type: "security"
+  
+  - name: "backup"
+    patterns:
+      - "backup failed"
+      - "backup.*error"
+    priority: "high"
+    template: "backup_alert"
+    fields:
+      support_type: "backup"
+  
+  - name: "instance_down"
+    patterns:
+      - "instance.*down"
+      - "server.*unreachable"
+    priority: "critical"
+    template: "availability_alert"
+    fields:
+      support_type: "infrastructure"
+
+# Templates for ticket creation
+templates:
+  storage_alert:
+    title: "[{customer_id}][{vm}] Storage Alert"
+    description: |
+      **Alert**: Storage issue detected
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+  
+  performance_alert:
+    title: "[{customer_id}][{vm}] Performance Alert"
+    description: |
+      **Alert**: Performance issue detected
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+  
+  service_alert:
+    title: "[{customer_id}][{vm}] Service Alert"
+    description: |
+      **Alert**: Service issue detected
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+  
+  certificate_alert:
+    title: "[{customer_id}][{vm}] Certificate Alert"
+    description: |
+      **Alert**: Certificate issue detected
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+  
+  backup_alert:
+    title: "[{customer_id}][{vm}] Backup Failed"
+    description: |
+      **Alert**: Backup failure detected
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+  
+  availability_alert:
+    title: "[{customer_id}][{vm}] Server Down"
+    description: |
+      **Alert**: Server availability issue
+      **Customer**: {customer_id}
+      **VM**: {vm}
+      **Details**: {description}
+      **Time**: {timestamp}
+
+# General settings
+settings:
+  # Deduplication
+  deduplication:
+    enabled: true
+    strategy: "task_name"  # task_name, alert_fingerprint
+    check_existing: true
+  
+  # Operating modes
+  modes:
+    dry_run: false
+    interactive: false
+    verbose: false
+  
+  # Output settings
+  output:
+    format: "rich"  # rich, json, plain
+    file: null  # Optional output file
+  
+  # Logging
+  logging:
+    level: "INFO"
+    file: "grafana_publisher.log"
+    format: "json"  # json, plain
