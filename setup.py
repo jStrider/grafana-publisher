@@ -34,7 +34,7 @@ setup(
     entry_points={
         "console_scripts": [
             "grafana-publisher=src.cli:main",
-            "gp=src.cli:main",  # Short alias
+            "gpub=src.cli:main",  # Short alias (gp conflicts with git)
         ],
     },
     include_package_data=True,

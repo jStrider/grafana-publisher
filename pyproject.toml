@@ -49,7 +49,7 @@ dev = [
 
 [project.scripts]
 grafana-publisher = "src.cli:main"
-gp = "src.cli:main"
+gpub = "src.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/jStrider/grafana-publisher"

@@ -129,9 +129,10 @@ if [[ "$OS_TYPE" == "macos" ]]; then
                 echo -e "${YELLOW}Installing package with pipx...${NC}"
                 pipx install "$INSTALL_PATH"
                 
-                # Copy config example
+                # Copy config files  
                 mkdir -p "$CONFIG_DIR"
                 if [ -f "$INSTALL_PATH/config/config.example.yaml" ]; then
+                    [ ! -f "$CONFIG_DIR/config.yaml" ] && cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.yaml"
                     cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.example.yaml"
                 fi
                 
@@ -179,8 +180,9 @@ EOF
                 chmod +x "$INSTALL_DIR/grafana-publisher"
                 ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gp"
                 
-                # Copy config
+                # Copy config files
                 mkdir -p "$CONFIG_DIR"
+                [ ! -f "$CONFIG_DIR/config.yaml" ] && cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.yaml"
                 cp "$INSTALL_PATH/config/config.example.yaml" "$CONFIG_DIR/config.example.yaml"
                 
                 # Cleanup
@@ -220,8 +222,9 @@ EOF
             chmod +x "$INSTALL_DIR/grafana-publisher"
             ln -sf "$INSTALL_DIR/grafana-publisher" "$INSTALL_DIR/gp"
             
-            # Copy config
+            # Copy config files
             mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
             
             deactivate
@@ -243,6 +246,7 @@ else
             cd grafana-publisher
             pip3 install --user -e .
             mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
             cd /
             rm -rf "$TEMP_DIR"
@@ -256,6 +260,7 @@ else
             fi
             pip3 install --user -e .
             mkdir -p "$CONFIG_DIR"
+            [ ! -f "$CONFIG_DIR/config.yaml" ] && cp config/config.example.yaml "$CONFIG_DIR/config.yaml"
             cp config/config.example.yaml "$CONFIG_DIR/config.example.yaml"
             ;;
         
@@ -308,24 +313,27 @@ fi
 echo ""
 echo -e "${YELLOW}Setting up configuration...${NC}"
 
-if [ ! -f "$CONFIG_DIR/config.yaml" ]; then
-    if [ -f "$CONFIG_DIR/config.example.yaml" ]; then
-        echo -e "${BLUE}Example configuration created at:${NC}"
-        echo "  $CONFIG_DIR/config.example.yaml"
-        echo ""
-        echo -e "${YELLOW}To complete setup:${NC}"
-        echo "1. Copy the example config:"
-        echo "   cp $CONFIG_DIR/config.example.yaml $CONFIG_DIR/config.yaml"
-        echo ""
-        echo "2. Edit the config with your settings:"
-        echo "   nano $CONFIG_DIR/config.yaml"
-        echo ""
-        echo "3. Set your API tokens in environment or .env file:"
-        echo "   export GRAFANA_API_TOKEN='your_token'"
-        echo "   export CLICKUP_API_TOKEN='your_token'"
-    fi
+if [ -f "$CONFIG_DIR/config.yaml" ]; then
+    echo -e "${GREEN}✓ Configuration file ready at:${NC}"
+    echo "  $CONFIG_DIR/config.yaml"
+    echo ""
+    echo -e "${YELLOW}⚠️  IMPORTANT - Update your configuration:${NC}"
+    echo ""
+    echo -e "${BLUE}1. Edit the configuration file:${NC}"
+    echo "   nano $CONFIG_DIR/config.yaml"
+    echo ""
+    echo "   Key values to update:"
+    echo "   • grafana.url → Your Grafana URL"
+    echo "   • grafana.sources[0].folder_id → Your folder ID"
+    echo "   • publishers.clickup.list_id → Your ClickUp list ID"
+    echo ""
+    echo -e "${BLUE}2. Set your API tokens:${NC}"
+    echo "   export GRAFANA_API_TOKEN='your_token'"
+    echo "   export CLICKUP_API_TOKEN='your_token'"
+    echo ""
+    echo "   Or add them directly in config.yaml (less secure)"
 else
-    echo -e "${GREEN}✓ Configuration already exists${NC}"
+    echo -e "${RED}✗ Configuration file was not created${NC}"
 fi
 
 # Final message
