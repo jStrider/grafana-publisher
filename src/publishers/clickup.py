@@ -185,7 +185,7 @@ class ClickUpPublisher(BasePublisher):
         task_data = {
             "name": task_name,
             "description": alert.description,
-            "status": "Open",
+            "status": "nouvelles demandes",  # ClickUp status in French
             "priority": self._map_priority(alert.severity)
         }
         
@@ -253,22 +253,24 @@ class ClickUpPublisher(BasePublisher):
                 "value": field_config.get('default', 'Operationnel')
             })
         
-        # Process Hospital field
-        if 'hospital' in required_fields:
-            field_config = required_fields['hospital']
-            
-            # Use customer_id if configured
-            if field_config.get('use_customer_id', False):
-                value = alert.customer_id.title() if alert.customer_id else "Sancare"
-                
-                # For labels type, value should be an array
-                if field_config.get('type') == 'labels':
-                    value = [value]
-                
-                custom_fields.append({
-                    "id": field_config['field_id'],
-                    "value": value
-                })
+        # Process Hospital field - disabled for now as it's causing issues
+        # The field is of type 'labels' but doesn't have predefined options
+        # TODO: Investigate how to properly set label fields in ClickUp
+        # if 'hospital' in required_fields:
+        #     field_config = required_fields['hospital']
+        #     
+        #     # Use customer_id if configured
+        #     if field_config.get('use_customer_id', False):
+        #         value = alert.customer_id.title() if alert.customer_id else "Sancare"
+        #         
+        #         # For labels type, value should be an array
+        #         if field_config.get('type') == 'labels':
+        #             value = [value]
+        #         
+        #         custom_fields.append({
+        #             "id": field_config['field_id'],
+        #             "value": value
+        #         })
         
         return custom_fields
     
