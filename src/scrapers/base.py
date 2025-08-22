@@ -1,7 +1,7 @@
 """Base scraper interface."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 
 class Alert:
@@ -13,8 +13,8 @@ class Alert:
         vm: str,
         description: str,
         severity: str = "medium",
-        labels: Dict[str, str] = None,
-        annotations: Dict[str, str] = None,
+        labels: dict[str, str] = None,
+        annotations: dict[str, str] = None,
         instance: str = None,
     ):
         self.customer_id = customer_id
@@ -25,7 +25,7 @@ class Alert:
         self.annotations = annotations or {}
         self.instance = instance
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert alert to dictionary."""
         return {
             "customer_id": self.customer_id,
@@ -38,14 +38,18 @@ class Alert:
         }
 
     def __repr__(self) -> str:
-        return f"Alert(customer_id={self.customer_id}, vm={self.vm}, description={self.description[:50]}...)"
+        description_preview = self.description[:50]
+        return (
+            f"Alert(customer_id={self.customer_id}, vm={self.vm}, "
+            f"description={description_preview}...)"
+        )
 
 
 class BaseScraper(ABC):
     """Base class for all scrapers."""
 
     @abstractmethod
-    def fetch_alerts(self) -> List[Alert]:
+    def fetch_alerts(self) -> list[Alert]:
         """
         Fetch alerts from the monitoring system.
 

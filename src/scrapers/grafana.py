@@ -1,7 +1,5 @@
 """Grafana alert scraper."""
 
-from typing import Dict, List
-
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -61,7 +59,7 @@ class GrafanaScraper(BaseScraper):
             logger.error("Grafana connection failed", url=self.config.url, error=str(e))
             return False
 
-    def fetch_alerts(self) -> List[Alert]:
+    def fetch_alerts(self) -> list[Alert]:
         """Fetch alerts from Grafana."""
         all_alerts = []
 
@@ -72,7 +70,7 @@ class GrafanaScraper(BaseScraper):
         logger.info(f"Fetched {len(all_alerts)} alerts from Grafana")
         return all_alerts
 
-    def _fetch_source_alerts(self, source: GrafanaSource) -> List[Alert]:
+    def _fetch_source_alerts(self, source: GrafanaSource) -> list[Alert]:
         """
         Fetch alerts from a specific source.
 
@@ -95,7 +93,7 @@ class GrafanaScraper(BaseScraper):
             logger.error("Failed to fetch alerts from source", source=source.name, error=str(e))
             return []
 
-    def _parse_alerts(self, data: Dict, source: GrafanaSource) -> List[Alert]:
+    def _parse_alerts(self, data: dict, source: GrafanaSource) -> list[Alert]:
         """
         Parse alerts from Grafana response.
 
@@ -153,7 +151,7 @@ class GrafanaScraper(BaseScraper):
 
         return alerts
 
-    def _matches_filters(self, alert_data: Dict, source: GrafanaSource) -> bool:
+    def _matches_filters(self, alert_data: dict, source: GrafanaSource) -> bool:
         """
         Check if alert matches source filters.
 

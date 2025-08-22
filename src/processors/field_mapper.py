@@ -1,6 +1,6 @@
 """Dynamic field mapping for ticketing systems."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.core.logger import get_logger
 
@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 class FieldMapper:
     """Maps alert fields to ticketing system fields."""
 
-    def __init__(self, field_definitions: List[Dict], mappings: Dict[str, Any]):
+    def __init__(self, field_definitions: list[dict], mappings: dict[str, Any]):
         """
         Initialize field mapper.
 
@@ -22,7 +22,7 @@ class FieldMapper:
         self.mappings = mappings
         self._field_cache = self._build_field_cache()
 
-    def _build_field_cache(self) -> Dict[str, Dict]:
+    def _build_field_cache(self) -> dict[str, dict]:
         """Build cache of field definitions by name."""
         cache = {}
         for field in self.field_definitions:
@@ -30,7 +30,7 @@ class FieldMapper:
             cache[name] = field
         return cache
 
-    def map_fields(self, alert_data: Dict, custom_values: Dict = None) -> List[Dict]:
+    def map_fields(self, alert_data: dict, custom_values: dict = None) -> list[dict]:
         """
         Map alert data to custom fields.
 
@@ -67,7 +67,7 @@ class FieldMapper:
 
         return custom_fields
 
-    def _map_value(self, value: str, field_def: Dict, field_type: str) -> Optional[Any]:
+    def _map_value(self, value: str, field_def: dict, field_type: str) -> Optional[Any]:
         """
         Map value based on field type.
 
@@ -100,7 +100,7 @@ class FieldMapper:
             # Unknown field type, return as-is
             return value
 
-    def _find_option_id(self, value: str, options: List[Dict], field_type: str) -> Optional[str]:
+    def _find_option_id(self, value: str, options: list[dict], field_type: str) -> Optional[str]:
         """
         Find option ID by value.
 
@@ -130,7 +130,7 @@ class FieldMapper:
         logger.warning("No matching option found", value=value, field_type=field_type)
         return None
 
-    def get_field_by_name(self, name: str) -> Optional[Dict]:
+    def get_field_by_name(self, name: str) -> Optional[dict]:
         """
         Get field definition by name.
 
@@ -142,7 +142,7 @@ class FieldMapper:
         """
         return self._field_cache.get(name.lower())
 
-    def list_available_fields(self) -> List[str]:
+    def list_available_fields(self) -> list[str]:
         """
         List all available field names.
 
@@ -151,7 +151,7 @@ class FieldMapper:
         """
         return [field.get("name") for field in self.field_definitions]
 
-    def get_field_options(self, field_name: str) -> List[str]:
+    def get_field_options(self, field_name: str) -> list[str]:
         """
         Get available options for a field.
 

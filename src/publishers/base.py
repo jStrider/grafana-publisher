@@ -1,7 +1,7 @@
 """Base publisher interface."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.scrapers.base import Alert
 
@@ -65,7 +65,7 @@ class BasePublisher(ABC):
         pass
 
     @abstractmethod
-    def get_existing_tickets(self) -> List[Dict[str, Any]]:
+    def get_existing_tickets(self) -> list[dict[str, Any]]:
         """
         Get list of existing tickets.
 

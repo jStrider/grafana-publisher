@@ -1,7 +1,7 @@
 """ClickUp publisher implementation."""
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import requests
 
@@ -53,7 +53,7 @@ class ClickUpPublisher(BasePublisher):
             logger.error("ClickUp connection failed", error=str(e))
             return False
 
-    def get_existing_tickets(self) -> List[Dict[str, Any]]:
+    def get_existing_tickets(self) -> list[dict[str, Any]]:
         """Get list of existing tickets from ClickUp."""
         if self._existing_tasks is not None:
             return self._existing_tasks
@@ -172,7 +172,7 @@ class ClickUpPublisher(BasePublisher):
             self._field_resolver = FieldResolver(fields)
         return self._field_resolver
 
-    def _get_list_info(self) -> Dict[str, Any]:
+    def _get_list_info(self) -> dict[str, Any]:
         """Get list information including statuses."""
         if self._list_info is None:
             try:
@@ -186,7 +186,7 @@ class ClickUpPublisher(BasePublisher):
                 self._list_info = {}
         return self._list_info
 
-    def _prepare_task_data(self, alert: Alert) -> Dict[str, Any]:
+    def _prepare_task_data(self, alert: Alert) -> dict[str, Any]:
         """Prepare task data for ClickUp API."""
         task_name = self._generate_task_name(alert)
 
@@ -216,7 +216,7 @@ class ClickUpPublisher(BasePublisher):
         mapping = {"critical": 1, "high": 2, "medium": 3, "low": 4}
         return mapping.get(severity.lower(), 3)
 
-    def _get_custom_fields(self, alert: Alert) -> List[Dict[str, Any]]:
+    def _get_custom_fields(self, alert: Alert) -> list[dict[str, Any]]:
         """Get custom fields for the task using dynamic field resolution."""
         custom_fields = []
         resolver = self._get_field_resolver()
@@ -254,7 +254,7 @@ class ClickUpPublisher(BasePublisher):
         return custom_fields
 
     def _add_default_fields(
-        self, custom_fields: List[Dict[str, Any]], alert: Alert, resolver: FieldResolver
+        self, custom_fields: list[dict[str, Any]], alert: Alert, resolver: FieldResolver
     ):
         """Add default fields when no configuration is provided."""
         # Try to add common fields
@@ -271,7 +271,7 @@ class ClickUpPublisher(BasePublisher):
                 if option_id:
                     custom_fields.append({"id": field_id, "value": option_id})
 
-    def _get_field_value(self, field_config: Dict[str, Any], alert: Alert, resolver: FieldResolver):
+    def _get_field_value(self, field_config: dict[str, Any], alert: Alert, resolver: FieldResolver):
         """Get the value for a field based on configuration."""
         field_name = field_config.get("field_name")
 
@@ -337,7 +337,7 @@ class ClickUpPublisher(BasePublisher):
 
         return type_mapping.get(alert_type, "Issue")
 
-    def get_field_definitions(self) -> Dict[str, Any]:
+    def get_field_definitions(self) -> dict[str, Any]:
         """Get field definitions from ClickUp API."""
         if self.cache:
             # Try to get from cache first

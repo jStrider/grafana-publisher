@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ class GrafanaSource(BaseModel):
     name: str
     folder_id: str
     rules_group: str
-    labels_filter: Dict[str, str] = Field(default_factory=dict)
+    labels_filter: dict[str, str] = Field(default_factory=dict)
 
 
 class GrafanaConfig(BaseModel):
@@ -25,7 +25,7 @@ class GrafanaConfig(BaseModel):
     token: str
     verify_ssl: bool = True
     timeout: int = 30
-    sources: List[GrafanaSource]
+    sources: list[GrafanaSource]
 
     @field_validator("token")
     @classmethod
@@ -66,8 +66,8 @@ class ClickUpConfig(BaseModel):
     api_url: str
     token: str
     list_id: str
-    field_mappings: Optional[Dict[str, FieldMapping]] = None  # Legacy field mappings
-    required_fields: Optional[Dict[str, Any]] = None  # New required fields configuration
+    field_mappings: Optional[dict[str, FieldMapping]] = None  # Legacy field mappings
+    required_fields: Optional[dict[str, Any]] = None  # New required fields configuration
     cache: CacheConfig
     check_subtasks: bool = False  # Include subtasks when checking for duplicates
 
@@ -104,10 +104,10 @@ class AlertRule(BaseModel):
     """Alert processing rule."""
 
     name: str
-    patterns: List[str]
+    patterns: list[str]
     priority: str = "medium"
     template: str
-    fields: Dict[str, Any] = Field(default_factory=dict)
+    fields: dict[str, Any] = Field(default_factory=dict)
 
 
 class Template(BaseModel):
@@ -161,9 +161,9 @@ class Config(BaseModel):
     """Main configuration model."""
 
     grafana: GrafanaConfig
-    publishers: Dict[str, Any]
-    alert_rules: List[AlertRule]
-    templates: Dict[str, Template]
+    publishers: dict[str, Any]
+    alert_rules: list[AlertRule]
+    templates: dict[str, Template]
     settings: SettingsConfig
 
     @classmethod

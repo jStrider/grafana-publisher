@@ -1,6 +1,6 @@
 """Dynamic field resolver for ClickUp."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.core.logger import get_logger
 
@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 class FieldResolver:
     """Resolves field names to IDs and option names to option IDs dynamically."""
 
-    def __init__(self, fields: List[Dict[str, Any]]):
+    def __init__(self, fields: list[dict[str, Any]]):
         """
         Initialize field resolver with field definitions.
 
@@ -105,7 +105,8 @@ class FieldResolver:
                 option_id = option.get("id")
                 self._option_cache[cache_key] = option_id
                 logger.debug(
-                    f"Found option '{option_name}' (partial match) in field '{field_name}' with ID: {option_id}"
+                    f"Found option '{option_name}' (partial match) in field "
+                    f"'{field_name}' with ID: {option_id}"
                 )
                 return option_id
 
@@ -113,7 +114,7 @@ class FieldResolver:
         return None
 
     def get_status_name(
-        self, statuses: List[Dict[str, Any]], status_type: str = "open"
+        self, statuses: list[dict[str, Any]], status_type: str = "open"
     ) -> Optional[str]:
         """
         Get the status name for a given type.
