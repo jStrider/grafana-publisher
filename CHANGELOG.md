@@ -1,3 +1,10 @@
+# [0.3.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.3.0-develop.1...v0.3.0-develop.2) (2025-08-22)
+
+
+### Features
+
+* add uv package manager support ([d6ae812](https://github.com/jStrider/grafana-publisher/commit/d6ae812155b36c74a346e01fc2b91cd8695e2b0c))
+
 # [0.3.0-develop.1](https://github.com/jStrider/grafana-publisher/compare/v0.2.1-develop.1...v0.3.0-develop.1) (2025-08-22)
 
 
