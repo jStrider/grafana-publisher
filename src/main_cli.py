@@ -215,7 +215,7 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     table = Table(title="Publishing Results")
     table.add_column("Alert", style="cyan")
     table.add_column("Status", style="green")
-    table.add_column("ID", style="dim")
+    table.add_column("Ticket", style="dim")
     table.add_column("Details")
     
     # Publish each alert
@@ -259,8 +259,13 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
             created += 1
         elif result.skipped:
             if "already exists" in (result.skipped_reason or "").lower():
-                # For existing tasks, show the ticket ID in ID column
-                table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.ticket_id or "", description_display)
+                # For existing tasks, show the URL or ID
+                if result.ticket_url:
+                    # Show short URL format for better visibility
+                    short_url = result.ticket_url.replace("https://app.", "")
+                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", short_url, description_display)
+                else:
+                    table.add_row(alert_text, "[yellow]EXISTS[/yellow]", result.ticket_id or "", description_display)
                 skipped += 1
             elif dry_run and "dry run" in (result.skipped_reason or "").lower():
                 # For dry run, show the alert description
