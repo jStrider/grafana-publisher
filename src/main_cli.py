@@ -210,8 +210,35 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     # Publish each alert
     for processed in track(processed_alerts, description="Publishing alerts..."):
         alert = processed["alert"]
-        # Use plain text for alert name (Rich will handle escaping)
-        alert_name = f"[{alert.customer_id}][{alert.vm}]"
+        # Generate the actual task name that will be created
+        alert_type = ""
+        if "title" in processed:
+            # Extract alert type from title if available
+            alert_name = processed["title"]
+        else:
+            # Fallback to basic format with alert type detection
+            base_name = f"[{alert.customer_id}][{alert.vm}]"
+            
+            # Determine alert type from description (same logic as ClickUp publisher)
+            description = alert.description.lower()
+            if "backup failed" in description:
+                alert_name = f"{base_name} backup failed"
+            elif "partition" in description or "disk" in description:
+                alert_name = f"{base_name} alerte stockage"
+            elif "memory usage" in description or "ram" in description:
+                alert_name = f"{base_name} alerte mémoire"
+            elif "cpu usage" in description or "processor" in description:
+                alert_name = f"{base_name} alerte CPU"
+            elif "systemd" in description or "service" in description:
+                alert_name = f"{base_name} alerte systemd service"
+            elif "certificate" in description or "ssl" in description or "expire" in description:
+                alert_name = f"{base_name} alerte certificat"
+            elif "instance" in description and "down" in description:
+                alert_name = f"{base_name} server down"
+            elif "raid" in description and "degraded" in description:
+                alert_name = f"{base_name} alerte RAID"
+            else:
+                alert_name = base_name
         
         if interactive and not dry_run:
             console.print(f"\n[bold]Alert:[/bold] {alert_name}")
