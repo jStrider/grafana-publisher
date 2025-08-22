@@ -61,7 +61,8 @@ class ClickUpConfig(BaseModel):
     api_url: str
     token: str
     list_id: str
-    field_mappings: Dict[str, FieldMapping]
+    field_mappings: Optional[Dict[str, FieldMapping]] = None  # Legacy field mappings
+    required_fields: Optional[Dict[str, Any]] = None  # New required fields configuration
     cache: CacheConfig
     check_subtasks: bool = False  # Include subtasks when checking for duplicates
     

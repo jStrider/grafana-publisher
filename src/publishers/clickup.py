@@ -210,54 +210,65 @@ class ClickUpPublisher(BasePublisher):
         """Get custom fields for the task."""
         custom_fields = []
         
-        # Required fields with their IDs from ClickUp
-        # Type support (ID: 8daff867-e54a-49f5-...)
-        # Type Infra (ID: 34e05f42-914e-41cb-...)
-        # categorie infra (ID: 6b621c5f-6aff-412b-...)
+        # Check if required_fields is configured
+        if not hasattr(self.config, 'required_fields'):
+            logger.warning("No required_fields configured in ClickUp settings")
+            return custom_fields
         
-        # Determine values based on alert type
+        required_fields = self.config.required_fields
+        
+        # Determine alert type for mapping
         alert_type = self._determine_alert_type(alert.description)
         
-        # Type support - map alert types to support types
-        type_support_mapping = {
-            "backup failed": "Sauvegarde",
-            "alerte stockage": "Stockage",
-            "alerte mémoire": "Performance",
-            "alerte CPU": "Performance",
-            "alerte systemd service": "Services Down",
-            "alerte certificat": "Certificat",
-            "server down": "Services Down",
-            "alerte RAID": "Stockage"
-        }
-        
-        type_support_value = type_support_mapping.get(alert_type, "Monitoring")
-        
-        # Add Type support field
-        custom_fields.append({
-            "id": "8daff867-e54a-49f5-47ba-8c16cba83070",  # Full ID for Type support
-            "value": type_support_value
-        })
-        
-        # Add Type Infra field - default to "monitoring" for alerts
-        custom_fields.append({
-            "id": "34e05f42-914e-41cb-9834-a67c488bc643",  # Full ID for Type Infra
-            "value": "monitoring"
-        })
-        
-        # Add categorie infra field - default to "Operationnel" for alerts
-        custom_fields.append({
-            "id": "6b621c5f-6aff-412b-946b-ffb64802de5e",  # Full ID for categorie infra
-            "value": "Operationnel"
-        })
-        
-        # Add Hospital field if configured
-        if hasattr(self.config, 'field_mappings') and 'hospital' in self.config.field_mappings:
-            # Hospital field ID: 3b500181-7b34-4062-...
-            hospital_value = alert.customer_id.title() if alert.customer_id else "Sancare"
+        # Process Type support field
+        if 'type_support' in required_fields:
+            field_config = required_fields['type_support']
+            
+            # Map alert type to support type
+            alert_type_key = alert_type.replace("alerte ", "").replace(" ", "_") if alert_type else None
+            
+            # Get value from mapping or use default
+            value = field_config.get('default', 'Monitoring')
+            if alert_type_key and 'mapping' in field_config:
+                value = field_config['mapping'].get(alert_type_key, value)
+            
             custom_fields.append({
-                "id": "3b500181-7b34-4062-9f6f-c8e088e5f1bd",  # Full ID for Hôpital
-                "value": [hospital_value]  # Labels field expects array
+                "id": field_config['field_id'],
+                "value": value
             })
+        
+        # Process Type Infra field
+        if 'type_infra' in required_fields:
+            field_config = required_fields['type_infra']
+            custom_fields.append({
+                "id": field_config['field_id'],
+                "value": field_config.get('default', 'monitoring')
+            })
+        
+        # Process categorie infra field
+        if 'categorie_infra' in required_fields:
+            field_config = required_fields['categorie_infra']
+            custom_fields.append({
+                "id": field_config['field_id'],
+                "value": field_config.get('default', 'Operationnel')
+            })
+        
+        # Process Hospital field
+        if 'hospital' in required_fields:
+            field_config = required_fields['hospital']
+            
+            # Use customer_id if configured
+            if field_config.get('use_customer_id', False):
+                value = alert.customer_id.title() if alert.customer_id else "Sancare"
+                
+                # For labels type, value should be an array
+                if field_config.get('type') == 'labels':
+                    value = [value]
+                
+                custom_fields.append({
+                    "id": field_config['field_id'],
+                    "value": value
+                })
         
         return custom_fields
     
