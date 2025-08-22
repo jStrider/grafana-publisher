@@ -12,16 +12,25 @@ from src.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Read version from VERSION file
-def _read_version_file() -> str:
-    """Read version from VERSION file."""
+# Read version from package or VERSION file
+def _read_version() -> str:
+    """Read version from package metadata or VERSION file."""
+    # Try to get version from installed package first
+    try:
+        from importlib.metadata import version as get_package_version
+        return get_package_version("grafana-publisher")
+    except Exception:
+        pass
+    
+    # Fallback to VERSION file for development
     version_file = Path(__file__).parent.parent.parent / "VERSION"
     if version_file.exists():
         return version_file.read_text().strip()
-    return "0.1.0"  # Fallback version
+    
+    return "0.1.0"  # Final fallback
 
-# Current version - read from VERSION file
-__version__ = _read_version_file()
+# Current version
+__version__ = _read_version()
 
 # GitHub repository information
 GITHUB_OWNER = "jStrider"
@@ -35,8 +44,7 @@ VERSION_CHECK_INTERVAL = timedelta(hours=24)
 
 def get_version() -> str:
     """Get the current version."""
-    # Re-read from file to get latest version
-    return _read_version_file()
+    return __version__
 
 
 def parse_version(version_string: str) -> version.Version:

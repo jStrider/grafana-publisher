@@ -291,8 +291,19 @@ case $INSTALL_METHOD in
         
         INSTALL_PATH=$(get_install_source)
         
-        echo -e "${YELLOW}Installing package with uv...${NC}"
-        uv tool install "$INSTALL_PATH"
+        # Check if already installed with uv
+        if uv tool list 2>/dev/null | grep -q "grafana-publisher"; then
+            echo -e "${YELLOW}Grafana Publisher is already installed with uv${NC}"
+            echo -e "${YELLOW}Reinstalling with latest version...${NC}"
+            uv tool install "$INSTALL_PATH" --force
+        else
+            echo -e "${YELLOW}Installing package with uv...${NC}"
+            # Try normal install first, if it fails due to existing executables, use --force
+            if ! uv tool install "$INSTALL_PATH" 2>/dev/null; then
+                echo -e "${YELLOW}Executables exist, forcing installation...${NC}"
+                uv tool install "$INSTALL_PATH" --force
+            fi
+        fi
         
         # Copy config files  
         mkdir -p "$CONFIG_DIR"
@@ -316,8 +327,16 @@ case $INSTALL_METHOD in
         
         INSTALL_PATH=$(get_install_source)
         
-        echo -e "${YELLOW}Installing package with pipx...${NC}"
-        pipx install "$INSTALL_PATH"
+        # Check if already installed with pipx
+        if pipx list 2>/dev/null | grep -q "grafana-publisher"; then
+            echo -e "${YELLOW}Grafana Publisher is already installed with pipx${NC}"
+            echo -e "${YELLOW}Reinstalling to latest version...${NC}"
+            pipx uninstall grafana-publisher >/dev/null 2>&1
+            pipx install "$INSTALL_PATH"
+        else
+            echo -e "${YELLOW}Installing package with pipx...${NC}"
+            pipx install "$INSTALL_PATH"
+        fi
         
         # Copy config files  
         mkdir -p "$CONFIG_DIR"
