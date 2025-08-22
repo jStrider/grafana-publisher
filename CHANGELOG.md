@@ -1,3 +1,10 @@
+# [0.2.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.2.0-develop.1...v0.2.0-develop.2) (2025-08-22)
+
+
+### Bug Fixes
+
+* resolve CI/CD pipeline issues ([691e538](https://github.com/jStrider/grafana-publisher/commit/691e538328ff64642d4e855806b36ed9505c0f17))
+
 # [0.2.0-develop.1](https://github.com/jStrider/grafana-publisher/compare/v0.1.0...v0.2.0-develop.1) (2025-08-22)
 
 
