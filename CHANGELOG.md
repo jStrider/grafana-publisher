@@ -1,3 +1,10 @@
+# [0.4.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.1...v0.4.0-develop.2) (2025-08-22)
+
+
+### Bug Fixes
+
+* add missing dependencies and improve version detection ([c30e852](https://github.com/jStrider/grafana-publisher/commit/c30e85254fe4186bfcc9a11d708022de5379e2f6))
+
 # [0.4.0-develop.1](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.4.0-develop.1) (2025-08-22)
 
 
