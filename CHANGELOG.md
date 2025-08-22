@@ -1,3 +1,10 @@
+# [0.4.0-develop.3](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.2...v0.4.0-develop.3) (2025-08-22)
+
+
+### Bug Fixes
+
+* ensure VERSION file compatibility with PEP 440 ([54a0036](https://github.com/jStrider/grafana-publisher/commit/54a003657862b4070a4f4f5bff143815213a85bf))
+
 # [0.4.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.1...v0.4.0-develop.2) (2025-08-22)
 
 
