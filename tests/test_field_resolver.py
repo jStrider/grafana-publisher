@@ -1,6 +1,7 @@
 """Tests for field resolver."""
 
 import pytest
+
 from src.publishers.field_resolver import FieldResolver
 
 

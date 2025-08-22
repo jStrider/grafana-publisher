@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Scrape Grafana alerts and create tickets in ClickUp/Jira"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "JRenaud", email = "contact@jrenaud.dev"}
 ]
@@ -16,7 +16,6 @@ keywords = ["grafana", "clickup", "jira", "alerting", "monitoring"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -66,6 +65,8 @@ target-version = ['py39', 'py310', 'py311', 'py312']
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings

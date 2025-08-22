@@ -1,6 +1,5 @@
 """Tests for alert processing."""
 
-import pytest
 from src.scrapers.base import Alert
 
 

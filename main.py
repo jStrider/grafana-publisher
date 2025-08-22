@@ -7,25 +7,18 @@ Scrapes Grafana alerts and publishes them to ticketing systems.
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.progress import track
+from rich.table import Table
 
 from src.core.config import Config
-from src.core.logger import setup_logging, get_logger
-from src.core.version import (
-    get_version, 
-    check_for_updates, 
-    format_update_message
-)
-from src.scrapers.grafana import GrafanaScraper
-from src.publishers.clickup import ClickUpPublisher
+from src.core.logger import get_logger, setup_logging
+from src.core.version import check_for_updates, format_update_message, get_version
 from src.processors.alert_processor import AlertProcessor
-from src.processors.field_mapper import FieldMapper
-
+from src.publishers.clickup import ClickUpPublisher
+from src.scrapers.grafana import GrafanaScraper
 
 console = Console()
 logger = get_logger(__name__)
@@ -37,25 +30,16 @@ logger = get_logger(__name__)
     "-c",
     type=click.Path(exists=True, path_type=Path),
     default="config/config.yaml",
-    help="Path to configuration file"
+    help="Path to configuration file",
 )
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Enable verbose output"
-)
-@click.option(
-    "--no-update-check",
-    is_flag=True,
-    help="Skip automatic update check"
-)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option("--no-update-check", is_flag=True, help="Skip automatic update check")
 @click.version_option(version=get_version(), prog_name="Grafana Publisher")
 @click.pass_context
 def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
     """Grafana Publisher - Scrape alerts and create tickets."""
     ctx.ensure_object(dict)
-    
+
     # Check for updates (non-blocking)
     if not no_update_check and ctx.invoked_subcommand != "version":
         try:
@@ -64,7 +48,7 @@ def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
                 console.print(format_update_message(update_info[0], update_info[1]))
         except Exception:
             pass  # Silently ignore update check failures
-    
+
     try:
         # Try multiple config locations
         config_paths = [
@@ -72,31 +56,31 @@ def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
             Path.home() / ".config" / "grafana-publisher" / "config.yaml",
             Path("config") / "config.yaml",
         ]
-        
+
         config_found = None
         for cfg_path in config_paths:
             if cfg_path.exists():
                 config_found = cfg_path
                 break
-        
+
         if not config_found:
-            console.print(f"[red]Configuration file not found. Tried:[/red]")
+            console.print("[red]Configuration file not found. Tried:[/red]")
             for cfg_path in config_paths:
                 console.print(f"  - {cfg_path}")
             console.print("\n[yellow]Run 'grafana-publisher init' to create a config file[/yellow]")
             sys.exit(1)
-        
+
         ctx.obj["config"] = Config.from_file(config_found)
         ctx.obj["verbose"] = verbose
-        
+
         # Setup logging
         log_config = ctx.obj["config"].settings.logging
         setup_logging(
             level="DEBUG" if verbose else log_config.level,
             log_file=log_config.file,
-            format_type=log_config.format
+            format_type=log_config.format,
         )
-        
+
     except Exception as e:
         console.print(f"[red]Error loading configuration: {e}[/red]")
         sys.exit(1)
@@ -107,107 +91,99 @@ def cli(ctx, config: Path, verbose: bool, no_update_check: bool):
 def test(ctx):
     """Test connections to Grafana and ticketing systems."""
     config = ctx.obj["config"]
-    
+
     console.print("\n[bold]Testing connections...[/bold]\n")
-    
+
     # Test Grafana
     with console.status("Testing Grafana connection..."):
         scraper = GrafanaScraper(config.grafana)
         grafana_ok = scraper.test_connection()
-    
+
     if grafana_ok:
         console.print("✅ Grafana connection: [green]OK[/green]")
     else:
         console.print("❌ Grafana connection: [red]FAILED[/red]")
-    
+
     # Test publishers
     for name, pub_config in config.publishers.items():
         if not pub_config.enabled:
             continue
-        
+
         with console.status(f"Testing {name} connection..."):
             if name == "clickup":
                 publisher = ClickUpPublisher(pub_config)
                 pub_ok = publisher.test_connection()
-        
+
         if pub_ok:
             console.print(f"✅ {name.capitalize()} connection: [green]OK[/green]")
         else:
             console.print(f"❌ {name.capitalize()} connection: [red]FAILED[/red]")
-    
+
     console.print()
 
 
 @cli.command()
 @click.option(
-    "--dry-run",
-    "-d",
-    is_flag=True,
-    help="Show what would be created without creating tickets"
+    "--dry-run", "-d", is_flag=True, help="Show what would be created without creating tickets"
 )
-@click.option(
-    "--interactive",
-    "-i",
-    is_flag=True,
-    help="Confirm each ticket before creation"
-)
+@click.option("--interactive", "-i", is_flag=True, help="Confirm each ticket before creation")
 @click.option(
     "--publisher",
     "-p",
     type=click.Choice(["clickup", "jira"]),
     default="clickup",
-    help="Publisher to use"
+    help="Publisher to use",
 )
 @click.pass_context
 def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     """Fetch alerts and publish to ticketing system."""
     config = ctx.obj["config"]
-    
+
     # Get publisher config
     pub_config = config.get_publisher(publisher)
     if not pub_config or not pub_config.enabled:
         console.print(f"[red]Publisher '{publisher}' is not enabled[/red]")
         return
-    
+
     # Initialize components
     scraper = GrafanaScraper(config.grafana)
     processor = AlertProcessor(config)
-    
+
     if publisher == "clickup":
         pub = ClickUpPublisher(pub_config)
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
         return
-    
+
     # Fetch alerts
     with console.status("Fetching alerts from Grafana..."):
         alerts = scraper.fetch_alerts()
-    
+
     if not alerts:
         console.print("[yellow]No alerts found[/yellow]")
         return
-    
+
     console.print(f"\n[bold]Found {len(alerts)} alerts[/bold]\n")
-    
+
     # Process alerts
     processed_alerts = processor.process_alerts(alerts)
-    
+
     # Statistics
     created = 0
     skipped = 0
     failed = 0
-    
+
     # Create table for results
     table = Table(title="Publishing Results")
     table.add_column("Alert", style="cyan")
     table.add_column("Status", style="green")
     table.add_column("Details")
-    
+
     # Publish each alert
     for processed in track(processed_alerts, description="Publishing alerts..."):
         alert = processed["alert"]
         alert_name = f"[{alert.customer_id}][{alert.vm}]"
-        
+
         if interactive and not dry_run:
             console.print(f"\n[bold]Alert:[/bold] {alert_name}")
             console.print(f"[bold]Description:[/bold] {alert.description[:100]}...")
@@ -215,9 +191,9 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
                 table.add_row(alert_name, "[yellow]SKIPPED[/yellow]", "User skipped")
                 skipped += 1
                 continue
-        
+
         result = pub.publish(alert, dry_run=dry_run)
-        
+
         if result.success:
             if dry_run:
                 table.add_row(alert_name, "[cyan]WOULD CREATE[/cyan]", result.skipped_reason or "")
@@ -230,11 +206,11 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
         else:
             table.add_row(alert_name, "[red]FAILED[/red]", result.error or "")
             failed += 1
-    
+
     # Display results
     console.print("\n")
     console.print(table)
-    
+
     # Summary
     console.print("\n[bold]Summary:[/bold]")
     if dry_run:
@@ -251,53 +227,58 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     "-f",
     type=click.Choice(["table", "json", "yaml"]),
     default="table",
-    help="Output format"
+    help="Output format",
 )
 @click.pass_context
 def list_alerts(ctx, format: str):
     """List current alerts from Grafana."""
     config = ctx.obj["config"]
-    
+
     scraper = GrafanaScraper(config.grafana)
-    
+
     with console.status("Fetching alerts..."):
         alerts = scraper.fetch_alerts()
-    
+
     if not alerts:
         console.print("[yellow]No alerts found[/yellow]")
         return
-    
+
     if format == "table":
         table = Table(title=f"Grafana Alerts ({len(alerts)} total)")
         table.add_column("Customer", style="cyan")
         table.add_column("VM", style="magenta")
         table.add_column("Description")
         table.add_column("Severity", style="yellow")
-        
+
         for alert in alerts:
             severity_color = {
                 "critical": "[red]",
                 "high": "[yellow]",
                 "medium": "[blue]",
-                "low": "[green]"
+                "low": "[green]",
             }.get(alert.severity.lower(), "")
-            
+
+            description = (
+                alert.description[:50] + "..." if len(alert.description) > 50 else alert.description
+            )
             table.add_row(
                 alert.customer_id,
                 alert.vm,
-                alert.description[:50] + "..." if len(alert.description) > 50 else alert.description,
-                f"{severity_color}{alert.severity}[/{severity_color.strip('[]')}]"
+                description,
+                f"{severity_color}{alert.severity}[/{severity_color.strip('[]')}]",
             )
-        
+
         console.print(table)
-    
+
     elif format == "json":
         import json
+
         data = [alert.to_dict() for alert in alerts]
         console.print(json.dumps(data, indent=2))
-    
+
     elif format == "yaml":
         import yaml
+
         data = [alert.to_dict() for alert in alerts]
         console.print(yaml.dump(data, default_flow_style=False))
 
@@ -308,47 +289,47 @@ def list_alerts(ctx, format: str):
     "-p",
     type=click.Choice(["clickup", "jira"]),
     default="clickup",
-    help="Publisher to check"
+    help="Publisher to check",
 )
 @click.pass_context
 def list_tickets(ctx, publisher: str):
     """List existing tickets in the ticketing system."""
     config = ctx.obj["config"]
-    
+
     pub_config = config.get_publisher(publisher)
     if not pub_config or not pub_config.enabled:
         console.print(f"[red]Publisher '{publisher}' is not enabled[/red]")
         return
-    
+
     if publisher == "clickup":
         pub = ClickUpPublisher(pub_config)
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
         return
-    
+
     with console.status("Fetching existing tickets..."):
         tickets = pub.get_existing_tickets()
-    
+
     if not tickets:
         console.print("[yellow]No tickets found[/yellow]")
         return
-    
+
     table = Table(title=f"Existing Tickets ({len(tickets)} total)")
     table.add_column("ID", style="cyan")
     table.add_column("Name")
     table.add_column("Status", style="yellow")
     table.add_column("URL")
-    
+
     for ticket in tickets[:50]:  # Limit to 50 for display
         table.add_row(
             ticket.get("id", ""),
             ticket.get("name", "")[:60],
             ticket.get("status", {}).get("status", ""),
-            f"https://app.clickup.com/t/{ticket.get('id', '')}"
+            f"https://app.clickup.com/t/{ticket.get('id', '')}",
         )
-    
+
     console.print(table)
-    
+
     if len(tickets) > 50:
         console.print(f"\n[yellow]Showing first 50 of {len(tickets)} tickets[/yellow]")
 
@@ -359,54 +340,49 @@ def list_tickets(ctx, publisher: str):
     "-p",
     type=click.Choice(["clickup", "jira"]),
     default="clickup",
-    help="Publisher to check fields for"
+    help="Publisher to check fields for",
 )
 @click.pass_context
 def list_fields(ctx, publisher: str):
     """List available custom fields in the ticketing system."""
     config = ctx.obj["config"]
-    
+
     pub_config = config.get_publisher(publisher)
     if not pub_config or not pub_config.enabled:
         console.print(f"[red]Publisher '{publisher}' is not enabled[/red]")
         return
-    
+
     if publisher == "clickup":
         pub = ClickUpPublisher(pub_config)
         fields = pub.get_field_definitions()
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
         return
-    
+
     if not fields:
         console.print("[yellow]No custom fields found[/yellow]")
         return
-    
+
     table = Table(title="Custom Fields")
     table.add_column("ID", style="cyan")
     table.add_column("Name")
     table.add_column("Type", style="yellow")
     table.add_column("Options")
-    
+
     for field in fields:
         field_type = field.get("type", "")
         options = ""
-        
+
         if field_type in ["drop_down", "labels"]:
             opts = field.get("type_config", {}).get("options", [])
             key = "label" if field_type == "labels" else "name"
             opt_names = [opt.get(key, "") for opt in opts[:3]]
             options = ", ".join(opt_names)
             if len(opts) > 3:
-                options += f" (+{len(opts)-3} more)"
-        
-        table.add_row(
-            field.get("id", ""),
-            field.get("name", ""),
-            field_type,
-            options
-        )
-    
+                options += f" (+{len(opts) - 3} more)"
+
+        table.add_row(field.get("id", ""), field.get("name", ""), field_type, options)
+
     console.print(table)
 
 
@@ -416,18 +392,19 @@ def init():
     config_dir = Path.home() / ".config" / "grafana-publisher"
     config_file = config_dir / "config.yaml"
     example_file = Path(__file__).parent / "config" / "config.example.yaml"
-    
+
     # Create config directory
     config_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if config_file.exists():
         if not click.confirm(f"Config file already exists at {config_file}. Overwrite?"):
             console.print("[yellow]Initialization cancelled[/yellow]")
             return
-    
+
     # Copy example config
     if example_file.exists():
         import shutil
+
         shutil.copy(example_file, config_file)
         console.print(f"[green]✓ Configuration created at {config_file}[/green]")
     else:
@@ -474,7 +451,7 @@ settings:
         with open(config_file, "w") as f:
             f.write(minimal_config)
         console.print(f"[green]✓ Configuration created at {config_file}[/green]")
-    
+
     console.print("\n[bold]Next steps:[/bold]")
     console.print("1. Edit the configuration file:")
     console.print(f"   nano {config_file}")
@@ -490,16 +467,16 @@ settings:
 def version(check):
     """Show version information."""
     console.print(f"[bold]Grafana Publisher[/bold] version {get_version()}")
-    
+
     if check:
         with console.status("Checking for updates..."):
             update_info = check_for_updates(force=True)
-        
+
         if update_info:
             if update_info[2]:
                 console.print(format_update_message(update_info[0], update_info[1]))
             else:
-                console.print(f"[green]✓ You are running the latest version[/green]")
+                console.print("[green]✓ You are running the latest version[/green]")
         else:
             console.print("[yellow]Could not check for updates[/yellow]")
 

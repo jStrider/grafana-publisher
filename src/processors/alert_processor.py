@@ -1,7 +1,7 @@
 """Alert processing and filtering."""
 
 import re
-from typing import Dict, List, Optional
+from typing import Optional
 
 from src.core.config import AlertRule, Config
 from src.core.logger import get_logger
@@ -24,7 +24,7 @@ class AlertProcessor:
         self.alert_rules = config.alert_rules
         self.templates = config.templates
 
-    def process_alerts(self, alerts: List[Alert]) -> List[Dict]:
+    def process_alerts(self, alerts: list[Alert]) -> list[dict]:
         """
         Process list of alerts.
 
@@ -44,7 +44,7 @@ class AlertProcessor:
         logger.info(f"Processed {len(processed)} out of {len(alerts)} alerts")
         return processed
 
-    def process_alert(self, alert: Alert) -> Optional[Dict]:
+    def process_alert(self, alert: Alert) -> Optional[dict]:
         """
         Process a single alert.
 
@@ -114,7 +114,7 @@ class AlertProcessor:
 
         return False
 
-    def _default_process(self, alert: Alert) -> Dict:
+    def _default_process(self, alert: Alert) -> dict:
         """
         Default processing for alerts without matching rules.
 

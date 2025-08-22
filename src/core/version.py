@@ -3,7 +3,7 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import requests
 from packaging import version
@@ -87,7 +87,7 @@ def save_version_cache(latest_version: str, release_url: str) -> None:
         json.dump(cache, f)
 
 
-def get_cached_version_info() -> Optional[Tuple[str, str]]:
+def get_cached_version_info() -> Optional[tuple[str, str]]:
     """
     Get cached version information.
 
@@ -107,7 +107,7 @@ def get_cached_version_info() -> Optional[Tuple[str, str]]:
         return None
 
 
-def check_for_updates(force: bool = False) -> Optional[Tuple[str, str, bool]]:
+def check_for_updates(force: bool = False) -> Optional[tuple[str, str, bool]]:
     """
     Check for available updates.
 

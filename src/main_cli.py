@@ -448,7 +448,7 @@ def list_fields(ctx, publisher: str):
             opt_names = [opt.get(key, "") for opt in opts[:3]]
             options = ", ".join(opt_names)
             if len(opts) > 3:
-                options += f" (+{len(opts)-3} more)"
+                options += f" (+{len(opts) - 3} more)"
 
         table.add_row(field.get("id", ""), field.get("name", ""), field_type, options)
 
