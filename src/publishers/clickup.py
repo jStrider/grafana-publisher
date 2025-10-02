@@ -257,19 +257,8 @@ class ClickUpPublisher(BasePublisher):
         self, custom_fields: list[dict[str, Any]], alert: Alert, resolver: FieldResolver
     ):
         """Add default fields when no configuration is provided."""
-        # Try to add common fields
-        field_mappings = [
-            ("Type support", self._map_alert_to_support_type(alert)),
-            ("Type Infra", "Issue Monitoring"),
-            ("categorie infra", "Operationnel"),
-        ]
-
-        for field_name, option_name in field_mappings:
-            field_id = resolver.get_field_id(field_name)
-            if field_id:
-                option_id = resolver.get_option_id(field_name, option_name)
-                if option_id:
-                    custom_fields.append({"id": field_id, "value": option_id})
+        # No default fields - rely on configuration
+        pass
 
     def _get_field_value(self, field_config: dict[str, Any], alert: Alert, resolver: FieldResolver):
         """Get the value for a field based on configuration."""
