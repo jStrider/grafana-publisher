@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/jStrider/grafana-publisher/compare/v0.4.0...v0.5.0) (2025-10-02)
+
+
+### Features
+
+* add ignore_rules to filter unwanted alerts ([404af17](https://github.com/jStrider/grafana-publisher/commit/404af17a22504952873363dbb6ce18778ee85ad4))
+
 # [0.4.0](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.4.0) (2025-10-02)
 
 
