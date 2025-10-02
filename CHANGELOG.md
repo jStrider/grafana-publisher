@@ -1,3 +1,16 @@
+# [0.4.0](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.4.0) (2025-10-02)
+
+
+### Bug Fixes
+
+* remove default field mappings to eliminate warnings ([40153c8](https://github.com/jStrider/grafana-publisher/commit/40153c8eefacbe8a460e0e37f8f7eb8ff94934d7))
+
+
+### Features
+
+* add uv package manager support and improvements ([#3](https://github.com/jStrider/grafana-publisher/issues/3)) ([a13d932](https://github.com/jStrider/grafana-publisher/commit/a13d932d3ae4dd1accfe23f01cf85f1e8938ea67))
+* uv support and auto-upgrade system ([#4](https://github.com/jStrider/grafana-publisher/issues/4)) ([1757e60](https://github.com/jStrider/grafana-publisher/commit/1757e60ad2983580cf91bca680629636116a1c8f))
+
 # [0.4.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.1...v0.4.0-develop.2) (2025-08-22)
 
 
