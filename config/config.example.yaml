@@ -1,6 +1,41 @@
 # Grafana Publisher Configuration
 # Copy this file to config.yaml and update with your values
 
+# Ignore rules - Filter out alerts you don't want to publish
+ignore_rules:
+  # Example: Ignore test VMs
+  - name: "ignore_test_vms"
+    vms:
+      - "test-.*"       # Regex pattern for VM names
+      - ".*-dev"
+
+  # Example: Ignore specific customers
+  - name: "ignore_demo_customers"
+    customer_ids:
+      - "demo"
+      - "test-customer"
+
+  # Example: Ignore low severity alerts for specific patterns
+  - name: "ignore_low_priority_disk"
+    patterns:
+      - "disk.*usage"
+    severities:
+      - "low"
+
+  # Example: Ignore alerts with specific labels
+  - name: "ignore_maintenance"
+    labels:
+      maintenance: "true"
+
+  # Example: Combined conditions (all must match)
+  - name: "ignore_staging_low_priority"
+    patterns:
+      - ".*"
+    severities:
+      - "low"
+    labels:
+      environment: "staging"
+
 # Grafana configuration
 grafana:
   url: "https://monitoring.example.com"

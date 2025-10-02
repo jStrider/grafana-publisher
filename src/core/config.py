@@ -100,6 +100,17 @@ class JiraConfig(BaseModel):
         return v
 
 
+class IgnoreRule(BaseModel):
+    """Alert ignore rule."""
+
+    name: str
+    patterns: Optional[list[str]] = None
+    customer_ids: Optional[list[str]] = None
+    vms: Optional[list[str]] = None
+    severities: Optional[list[str]] = None
+    labels: Optional[dict[str, str]] = None
+
+
 class AlertRule(BaseModel):
     """Alert processing rule."""
 
@@ -162,6 +173,7 @@ class Config(BaseModel):
 
     grafana: GrafanaConfig
     publishers: dict[str, Any]
+    ignore_rules: list[IgnoreRule] = Field(default_factory=list)
     alert_rules: list[AlertRule]
     templates: dict[str, Template]
     settings: SettingsConfig
@@ -192,6 +204,7 @@ class Config(BaseModel):
         return cls(
             grafana=GrafanaConfig(**data["grafana"]),
             publishers=publishers,
+            ignore_rules=[IgnoreRule(**rule) for rule in data.get("ignore_rules", [])],
             alert_rules=[AlertRule(**rule) for rule in data.get("alert_rules", [])],
             templates=templates,
             settings=SettingsConfig(**data.get("settings", {})),
