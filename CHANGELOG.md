@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/jStrider/grafana-publisher/compare/v0.5.0...v0.6.0) (2025-11-06)
+
+
+### Features
+
+* add tag support for ClickUp tickets ([7a572f3](https://github.com/jStrider/grafana-publisher/commit/7a572f38af76f55d5e5208e35d3a38d93edf089e))
+
 # [0.5.0](https://github.com/jStrider/grafana-publisher/compare/v0.4.0...v0.5.0) (2025-10-02)
 
 
