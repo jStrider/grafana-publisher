@@ -18,14 +18,16 @@ logger = get_logger(__name__)
 class ClickUpPublisher(BasePublisher):
     """Publisher for ClickUp tickets."""
 
-    def __init__(self, config: ClickUpConfig):
+    def __init__(self, config: ClickUpConfig, alert_rules: list = None):
         """
         Initialize ClickUp publisher.
 
         Args:
             config: ClickUp configuration
+            alert_rules: Optional list of alert rules for tag resolution
         """
         self.config = config
+        self.alert_rules = alert_rules or []
         self.session = self._create_session()
         self.cache = (
             CacheManager(config.cache.path, config.cache.ttl) if config.cache.enabled else None
@@ -209,6 +211,11 @@ class ClickUpPublisher(BasePublisher):
         if custom_fields:
             task_data["custom_fields"] = custom_fields
 
+        # Add tags if configured
+        tags = self._collect_tags(alert)
+        if tags:
+            task_data["tags"] = tags
+
         return task_data
 
     def _map_priority(self, severity: str) -> int:
@@ -325,6 +332,114 @@ class ClickUpPublisher(BasePublisher):
         }
 
         return type_mapping.get(alert_type, "Issue")
+
+    def _collect_tags(self, alert: Alert) -> list[str]:
+        """
+        Collect all tags for an alert (default + dynamic + rule-specific).
+
+        Args:
+            alert: Alert object
+
+        Returns:
+            List of tag strings
+        """
+        tags = []
+
+        # Add default tags
+        if self.config.default_tags:
+            tags.extend(self.config.default_tags)
+
+        # Add dynamic tags with variable resolution
+        if self.config.dynamic_tags:
+            for tag_template in self.config.dynamic_tags:
+                resolved_tag = self._resolve_dynamic_tag(tag_template, alert)
+                if resolved_tag:
+                    tags.append(resolved_tag)
+
+        # Add rule-specific tags
+        matching_rule = self._find_matching_rule(alert)
+        if matching_rule and matching_rule.tags:
+            tags.extend(matching_rule.tags)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_tags = []
+        for tag in tags:
+            if tag not in seen:
+                seen.add(tag)
+                unique_tags.append(tag)
+
+        return unique_tags
+
+    def _resolve_dynamic_tag(self, tag_template: str, alert: Alert) -> Optional[str]:
+        """
+        Resolve dynamic variables in a tag template.
+
+        Args:
+            tag_template: Tag template with variables like {severity}, {customer_id}
+            alert: Alert object
+
+        Returns:
+            Resolved tag string or None if resolution fails
+        """
+        context = {
+            "customer_id": alert.customer_id,
+            "vm": alert.vm,
+            "severity": alert.severity,
+            "instance": alert.instance or "",
+        }
+
+        # Add labels to context
+        for key, value in alert.labels.items():
+            context[f"label_{key}"] = value
+
+        # Add annotations to context
+        for key, value in alert.annotations.items():
+            context[f"annotation_{key}"] = value
+
+        try:
+            return tag_template.format(**context)
+        except KeyError as e:
+            logger.warning(
+                "Failed to resolve tag template variable",
+                template=tag_template,
+                error=str(e),
+            )
+            return None
+
+    def _find_matching_rule(self, alert: Alert):
+        """
+        Find the first matching alert rule for an alert.
+
+        Args:
+            alert: Alert to match
+
+        Returns:
+            Matching AlertRule or None
+        """
+        for rule in self.alert_rules:
+            if self._matches_alert_rule(alert, rule):
+                return rule
+        return None
+
+    def _matches_alert_rule(self, alert: Alert, rule) -> bool:
+        """
+        Check if alert matches a rule.
+
+        Args:
+            alert: Alert to check
+            rule: AlertRule to match against
+
+        Returns:
+            True if alert matches rule
+        """
+        description = alert.description
+
+        for pattern in rule.patterns:
+            if re.search(pattern, description, re.IGNORECASE):
+                return True
+
+        return False
 
     def get_field_definitions(self) -> dict[str, Any]:
         """Get field definitions from ClickUp API."""

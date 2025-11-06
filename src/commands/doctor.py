@@ -229,7 +229,7 @@ class Doctor:
         # Test ClickUp connection if enabled
         if hasattr(self.config.publishers, "clickup") and self.config.publishers.clickup.enabled:
             try:
-                publisher = ClickUpPublisher(self.config.publishers.clickup)
+                publisher = ClickUpPublisher(self.config.publishers.clickup, self.config.alert_rules)
                 if publisher.test_connection():
                     self._add_success(table, "ClickUp connection successful")
 

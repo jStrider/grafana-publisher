@@ -70,6 +70,8 @@ class ClickUpConfig(BaseModel):
     required_fields: Optional[dict[str, Any]] = None  # New required fields configuration
     cache: CacheConfig
     check_subtasks: bool = False  # Include subtasks when checking for duplicates
+    default_tags: list[str] = Field(default_factory=list)  # Default tags for all tasks
+    dynamic_tags: list[str] = Field(default_factory=list)  # Dynamic tags with variables
 
     @field_validator("token")
     @classmethod
@@ -119,6 +121,7 @@ class AlertRule(BaseModel):
     priority: str = "medium"
     template: str
     fields: dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)  # Tags specific to this rule
 
 
 class Template(BaseModel):

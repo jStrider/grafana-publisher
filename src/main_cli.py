@@ -125,7 +125,7 @@ def test(ctx):
 
         with console.status(f"Testing {name} connection..."):
             if name == "clickup":
-                publisher = ClickUpPublisher(pub_config)
+                publisher = ClickUpPublisher(pub_config, config.alert_rules)
                 pub_ok = publisher.test_connection()
 
         if pub_ok:
@@ -164,7 +164,7 @@ def publish(ctx, dry_run: bool, interactive: bool, publisher: str):
     processor = AlertProcessor(config)
 
     if publisher == "clickup":
-        pub = ClickUpPublisher(pub_config)
+        pub = ClickUpPublisher(pub_config, config.alert_rules)
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
         return
@@ -371,7 +371,7 @@ def list_tickets(ctx, publisher: str):
         return
 
     if publisher == "clickup":
-        pub = ClickUpPublisher(pub_config)
+        pub = ClickUpPublisher(pub_config, config.alert_rules)
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
         return
@@ -422,7 +422,7 @@ def list_fields(ctx, publisher: str):
         return
 
     if publisher == "clickup":
-        pub = ClickUpPublisher(pub_config)
+        pub = ClickUpPublisher(pub_config, config.alert_rules)
         fields = pub.get_field_definitions()
     else:
         console.print(f"[red]Publisher '{publisher}' not implemented yet[/red]")
