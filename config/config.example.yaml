@@ -1,6 +1,41 @@
 # Grafana Publisher Configuration
 # Copy this file to config.yaml and update with your values
 
+# Ignore rules - Filter out alerts you don't want to publish
+ignore_rules:
+  # Example: Ignore test VMs
+  - name: "ignore_test_vms"
+    vms:
+      - "test-.*"       # Regex pattern for VM names
+      - ".*-dev"
+
+  # Example: Ignore specific customers
+  - name: "ignore_demo_customers"
+    customer_ids:
+      - "demo"
+      - "test-customer"
+
+  # Example: Ignore low severity alerts for specific patterns
+  - name: "ignore_low_priority_disk"
+    patterns:
+      - "disk.*usage"
+    severities:
+      - "low"
+
+  # Example: Ignore alerts with specific labels
+  - name: "ignore_maintenance"
+    labels:
+      maintenance: "true"
+
+  # Example: Combined conditions (all must match)
+  - name: "ignore_staging_low_priority"
+    patterns:
+      - ".*"
+    severities:
+      - "low"
+    labels:
+      environment: "staging"
+
 # Grafana configuration
 grafana:
   url: "https://monitoring.example.com"
@@ -29,22 +64,34 @@ publishers:
     api_url: "https://api.clickup.com"
     token: "${CLICKUP_API_TOKEN}"
     list_id: "35412629"
-    
+
     # Subtask checking (to avoid duplicates in subtasks)
     check_subtasks: false  # When true, API returns both tasks and subtasks for duplicate checking
-    
+
+    # Tags configuration
+    # Default tags - Applied to ALL tasks
+    default_tags:
+      - "grafana-alert"
+      - "automated"
+
+    # Dynamic tags - Support variables from alert properties
+    # Available variables: {customer_id}, {vm}, {severity}, {instance}, {label_*}, {annotation_*}
+    dynamic_tags:
+      - "severity-{severity}"
+      - "customer-{customer_id}"
+
     # Field mappings
     field_mappings:
       hospital:
         type: "dropdown"
         field_name: "Hôpital"
         default: "sancare"
-      
+
       support_type:
         type: "dropdown"
         field_name: "Type support"
         default: "monitoring"
-    
+
     # Cache settings
     cache:
       enabled: true
@@ -68,7 +115,10 @@ alert_rules:
     template: "storage_alert"
     fields:
       support_type: "stockage"
-  
+    tags:
+      - "storage"
+      - "disk-space"
+
   - name: "memory"
     patterns:
       - "Memory usage.*"
@@ -77,7 +127,10 @@ alert_rules:
     template: "performance_alert"
     fields:
       support_type: "performance"
-  
+    tags:
+      - "performance"
+      - "memory"
+
   - name: "cpu"
     patterns:
       - "CPU usage.*"
@@ -86,7 +139,10 @@ alert_rules:
     template: "performance_alert"
     fields:
       support_type: "performance"
-  
+    tags:
+      - "performance"
+      - "cpu"
+
   - name: "service"
     patterns:
       - "systemd.*"
@@ -95,7 +151,10 @@ alert_rules:
     template: "service_alert"
     fields:
       support_type: "application"
-  
+    tags:
+      - "service-down"
+      - "systemd"
+
   - name: "certificate"
     patterns:
       - "certificate.*expire"
@@ -104,7 +163,10 @@ alert_rules:
     template: "certificate_alert"
     fields:
       support_type: "security"
-  
+    tags:
+      - "security"
+      - "certificate"
+
   - name: "backup"
     patterns:
       - "backup failed"
@@ -113,7 +175,10 @@ alert_rules:
     template: "backup_alert"
     fields:
       support_type: "backup"
-  
+    tags:
+      - "backup"
+      - "failure"
+
   - name: "instance_down"
     patterns:
       - "instance.*down"
@@ -122,6 +187,9 @@ alert_rules:
     template: "availability_alert"
     fields:
       support_type: "infrastructure"
+    tags:
+      - "critical"
+      - "server-down"
 
 # Templates for ticket creation
 templates:

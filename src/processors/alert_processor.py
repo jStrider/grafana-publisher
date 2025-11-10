@@ -3,7 +3,7 @@
 import re
 from typing import Optional
 
-from src.core.config import AlertRule, Config
+from src.core.config import AlertRule, Config, IgnoreRule
 from src.core.logger import get_logger
 from src.scrapers.base import Alert
 
@@ -21,6 +21,7 @@ class AlertProcessor:
             config: Application configuration
         """
         self.config = config
+        self.ignore_rules = config.ignore_rules
         self.alert_rules = config.alert_rules
         self.templates = config.templates
 
@@ -35,13 +36,27 @@ class AlertProcessor:
             List of processed alert dictionaries
         """
         processed = []
+        ignored_count = 0
 
         for alert in alerts:
+            # Check if alert should be ignored
+            if self._should_ignore(alert):
+                ignored_count += 1
+                logger.debug(
+                    "Alert ignored by ignore rules",
+                    customer_id=alert.customer_id,
+                    vm=alert.vm,
+                )
+                continue
+
             processed_alert = self.process_alert(alert)
             if processed_alert:
                 processed.append(processed_alert)
 
-        logger.info(f"Processed {len(processed)} out of {len(alerts)} alerts")
+        logger.info(
+            f"Processed {len(processed)} out of {len(alerts)} alerts "
+            f"({ignored_count} ignored)"
+        )
         return processed
 
     def process_alert(self, alert: Alert) -> Optional[dict]:
@@ -94,6 +109,77 @@ class AlertProcessor:
                 return rule
 
         return None
+
+    def _should_ignore(self, alert: Alert) -> bool:
+        """
+        Check if alert should be ignored based on ignore rules.
+
+        Args:
+            alert: Alert to check
+
+        Returns:
+            True if alert should be ignored
+        """
+        for rule in self.ignore_rules:
+            if self._matches_ignore_rule(alert, rule):
+                logger.info(
+                    "Alert matched ignore rule",
+                    rule=rule.name,
+                    customer_id=alert.customer_id,
+                    vm=alert.vm,
+                )
+                return True
+        return False
+
+    def _matches_ignore_rule(self, alert: Alert, rule: IgnoreRule) -> bool:
+        """
+        Check if alert matches an ignore rule.
+
+        Args:
+            alert: Alert to check
+            rule: Ignore rule to match against
+
+        Returns:
+            True if alert matches ignore rule
+        """
+        # Check patterns in description
+        if rule.patterns:
+            pattern_match = False
+            for pattern in rule.patterns:
+                if re.search(pattern, alert.description, re.IGNORECASE):
+                    pattern_match = True
+                    break
+            if not pattern_match:
+                return False
+
+        # Check customer IDs
+        if rule.customer_ids:
+            if alert.customer_id not in rule.customer_ids:
+                return False
+
+        # Check VMs
+        if rule.vms:
+            vm_match = False
+            for vm_pattern in rule.vms:
+                if re.search(vm_pattern, alert.vm, re.IGNORECASE):
+                    vm_match = True
+                    break
+            if not vm_match:
+                return False
+
+        # Check severities
+        if rule.severities:
+            if alert.severity.lower() not in [s.lower() for s in rule.severities]:
+                return False
+
+        # Check labels
+        if rule.labels:
+            for key, value in rule.labels.items():
+                if alert.labels.get(key) != value:
+                    return False
+
+        # If all specified conditions matched, ignore the alert
+        return True
 
     def _matches_rule(self, alert: Alert, rule: AlertRule) -> bool:
         """

@@ -1,14 +1,29 @@
-# [0.4.0-develop.3](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.2...v0.4.0-develop.3) (2025-08-22)
+# [0.6.0](https://github.com/jStrider/grafana-publisher/compare/v0.5.0...v0.6.0) (2025-11-06)
+
+
+### Features
+
+* add tag support for ClickUp tickets ([7a572f3](https://github.com/jStrider/grafana-publisher/commit/7a572f38af76f55d5e5208e35d3a38d93edf089e))
+
+# [0.5.0](https://github.com/jStrider/grafana-publisher/compare/v0.4.0...v0.5.0) (2025-10-02)
+
+
+### Features
+
+* add ignore_rules to filter unwanted alerts ([404af17](https://github.com/jStrider/grafana-publisher/commit/404af17a22504952873363dbb6ce18778ee85ad4))
+
+# [0.4.0](https://github.com/jStrider/grafana-publisher/compare/v0.3.0...v0.4.0) (2025-10-02)
 
 
 ### Bug Fixes
 
-* ensure VERSION file compatibility with PEP 440 ([54a0036](https://github.com/jStrider/grafana-publisher/commit/54a003657862b4070a4f4f5bff143815213a85bf))
+* remove default field mappings to eliminate warnings ([40153c8](https://github.com/jStrider/grafana-publisher/commit/40153c8eefacbe8a460e0e37f8f7eb8ff94934d7))
 
 
 ### Features
 
 * add uv package manager support and improvements ([#3](https://github.com/jStrider/grafana-publisher/issues/3)) ([a13d932](https://github.com/jStrider/grafana-publisher/commit/a13d932d3ae4dd1accfe23f01cf85f1e8938ea67))
+* uv support and auto-upgrade system ([#4](https://github.com/jStrider/grafana-publisher/issues/4)) ([1757e60](https://github.com/jStrider/grafana-publisher/commit/1757e60ad2983580cf91bca680629636116a1c8f))
 
 # [0.4.0-develop.2](https://github.com/jStrider/grafana-publisher/compare/v0.4.0-develop.1...v0.4.0-develop.2) (2025-08-22)
 

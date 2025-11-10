@@ -70,6 +70,8 @@ class ClickUpConfig(BaseModel):
     required_fields: Optional[dict[str, Any]] = None  # New required fields configuration
     cache: CacheConfig
     check_subtasks: bool = False  # Include subtasks when checking for duplicates
+    default_tags: list[str] = Field(default_factory=list)  # Default tags for all tasks
+    dynamic_tags: list[str] = Field(default_factory=list)  # Dynamic tags with variables
 
     @field_validator("token")
     @classmethod
@@ -100,6 +102,17 @@ class JiraConfig(BaseModel):
         return v
 
 
+class IgnoreRule(BaseModel):
+    """Alert ignore rule."""
+
+    name: str
+    patterns: Optional[list[str]] = None
+    customer_ids: Optional[list[str]] = None
+    vms: Optional[list[str]] = None
+    severities: Optional[list[str]] = None
+    labels: Optional[dict[str, str]] = None
+
+
 class AlertRule(BaseModel):
     """Alert processing rule."""
 
@@ -108,6 +121,7 @@ class AlertRule(BaseModel):
     priority: str = "medium"
     template: str
     fields: dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)  # Tags specific to this rule
 
 
 class Template(BaseModel):
@@ -162,6 +176,7 @@ class Config(BaseModel):
 
     grafana: GrafanaConfig
     publishers: dict[str, Any]
+    ignore_rules: list[IgnoreRule] = Field(default_factory=list)
     alert_rules: list[AlertRule]
     templates: dict[str, Template]
     settings: SettingsConfig
@@ -192,6 +207,7 @@ class Config(BaseModel):
         return cls(
             grafana=GrafanaConfig(**data["grafana"]),
             publishers=publishers,
+            ignore_rules=[IgnoreRule(**rule) for rule in data.get("ignore_rules", [])],
             alert_rules=[AlertRule(**rule) for rule in data.get("alert_rules", [])],
             templates=templates,
             settings=SettingsConfig(**data.get("settings", {})),
