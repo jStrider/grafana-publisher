@@ -36,3 +36,6 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Package managers
+uv.lock
