@@ -1,3 +1,18 @@
+# [0.7.0-develop.1](https://github.com/jStrider/grafana-publisher/compare/v0.6.0...v0.7.0-develop.1) (2025-11-10)
+
+
+### Bug Fixes
+
+* add missing dependencies and improve version detection ([c30e852](https://github.com/jStrider/grafana-publisher/commit/c30e85254fe4186bfcc9a11d708022de5379e2f6))
+* ensure VERSION file compatibility with PEP 440 ([54a0036](https://github.com/jStrider/grafana-publisher/commit/54a003657862b4070a4f4f5bff143815213a85bf))
+* improve auto-upgrade for development installations ([1e42324](https://github.com/jStrider/grafana-publisher/commit/1e42324f2d144e99f2eea83d63aebfc35cddd243))
+
+
+### Features
+
+* add intelligent auto-upgrade system ([3113c74](https://github.com/jStrider/grafana-publisher/commit/3113c741218f1f50bbe669ddc02a00386e2eb66c))
+* add uv package manager support ([d6ae812](https://github.com/jStrider/grafana-publisher/commit/d6ae812155b36c74a346e01fc2b91cd8695e2b0c))
+
 # [0.6.0](https://github.com/jStrider/grafana-publisher/compare/v0.5.0...v0.6.0) (2025-11-06)
 
 
